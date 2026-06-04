@@ -129,11 +129,11 @@ public class ReaderUtil {
       </section>
       <section name="A PooledObjectFactory">
        <p>
-        The implementations provided in pool2 wrap pooled objects in <code>PooledObject</code>
-        wrappers for internal use by the pool and object factories.  The <code>PooledObjectFactory</code>
+        The implementations provided in Commons Pool 3 wrap pooled objects in <code>PooledObject</code>
+        wrappers for internal use by the pool and object factories. The <code>PooledObjectFactory</code>
         interface defines lifecycle methods for pooled objects. The simplest way to implement a
-        <code>PoolableObjectFactory</code> is to extend
-        <a href="./apidocs/org/apache/commons/pool2/BasePooledObjectFactory.html">
+        <code>PooledObjectFactory</code> is to extend
+        <a href="./apidocs/org/apache/commons/pool3/BasePooledObjectFactory.html">
         <code>BasePooledObjectFactory</code></a>.
        </p>
        <p>
@@ -178,6 +178,94 @@ public class StringBufferFactory
        <code>ReaderUtil</code> as follows:
       </p>
 <source>ReaderUtil readerUtil = new ReaderUtil(new GenericObjectPool&lt;StringBuffer&gt;(new StringBufferFactory()));</source>
+      </section>
+      <section name="A KeyedObjectPool Client">
+       <p>
+        A <code>KeyedObjectPool</code> is useful when objects should be reused within categories instead of
+        sharing one common pool. If requests for <code>csv</code> readers, <code>json</code> readers and
+        <code>xml</code> readers have different traffic patterns, a keyed pool keeps those buffers in separate
+        sub-pools while still exposing one pool instance to the caller.
+       </p>
+       <p>
+        The following <code>KeyedReaderUtil</code> mirrors the earlier <code>ReaderUtil</code> example, but
+        borrows and returns buffers with a key so each category can reuse its own objects.
+       </p>
+<source>
+import java.io.IOException;
+import java.io.Reader;
+
+import org.apache.commons.pool3.KeyedObjectPool;
+
+public class KeyedReaderUtil {
+
+    private final KeyedObjectPool&lt;String, StringBuffer, RuntimeException&gt; pool;
+
+    public KeyedReaderUtil(final KeyedObjectPool&lt;String, StringBuffer, RuntimeException&gt; pool) {
+        this.pool = pool;
+    }
+
+    public String readToString(final String key, final Reader in) throws IOException {
+        StringBuffer buffer = null;
+        try {
+            buffer = pool.borrowObject(key);
+            for (int c = in.read(); c != -1; c = in.read()) {
+                buffer.append((char) c);
+            }
+            return buffer.toString();
+        } catch (final IOException e) {
+            throw e;
+        } catch (final Exception e) {
+            throw new RuntimeException("Unable to borrow buffer from pool for key " + key, e);
+        } finally {
+            try {
+                in.close();
+            } catch (final Exception e) {
+            }
+            try {
+                if (buffer != null) {
+                    pool.returnObject(key, buffer);
+                }
+            } catch (final Exception e) {
+            }
+        }
+    }
+}
+</source>
+      <p>
+       In Commons Pool 3, the simplest keyed factory base class is
+       <a href="./apidocs/org/apache/commons/pool3/BaseKeyedPooledObjectFactory.html">
+       <code>BaseKeyedPooledObjectFactory</code></a>. This factory creates a <code>StringBuffer</code> for
+       each key and clears the buffer when it is returned.
+      </p>
+<source>
+import org.apache.commons.pool3.BaseKeyedPooledObjectFactory;
+import org.apache.commons.pool3.PooledObject;
+import org.apache.commons.pool3.impl.DefaultPooledObject;
+
+public class KeyedStringBufferFactory
+    extends BaseKeyedPooledObjectFactory&lt;String, StringBuffer, RuntimeException&gt; {
+
+    @Override
+    public StringBuffer create(final String key) {
+        return new StringBuffer(Math.max(16, key.length()));
+    }
+
+    @Override
+    public PooledObject&lt;StringBuffer&gt; wrap(final StringBuffer value) {
+        return new DefaultPooledObject&lt;&gt;(value);
+    }
+
+    @Override
+    public void passivateObject(final String key, final PooledObject&lt;StringBuffer&gt; pooledObject) {
+        pooledObject.getObject().setLength(0);
+    }
+}
+</source>
+      <p>
+       We can then combine the factory with a <code>GenericKeyedObjectPool</code> so that one utility can
+       reuse separate buffers for each category:
+      </p>
+<source>KeyedReaderUtil readerUtil = new KeyedReaderUtil(new GenericKeyedObjectPool&lt;&gt;(new KeyedStringBufferFactory()));</source>
       </section>
    </body>
 </document>
