@@ -1,0 +1,58 @@
+diff --git a/src/main/java/org/apache/commons/pool3/impl/ResilientPooledObjectFactory.java b/src/main/java/org/apache/commons/pool3/impl/ResilientPooledObjectFactory.java
+index 0f1de832..ac654b7f 100644
+--- a/src/main/java/org/apache/commons/pool3/impl/ResilientPooledObjectFactory.java
++++ b/src/main/java/org/apache/commons/pool3/impl/ResilientPooledObjectFactory.java
+@@ -344,6 +344,16 @@ public class ResilientPooledObjectFactory<T, E extends Exception> implements Poo
+         return logSize;
+     }
+ 
++    /**
++     * Gets the count of exceptions of the specified type recorded by makeObject calls.
++     *
++     * @param exceptionClass the class of exception to get the count for
++     * @return the count of exceptions of the specified type
++     */
++    public int getExceptionCount(final Class<?> exceptionClass) {
++        return exceptionCounts.getOrDefault(exceptionClass, 0);
++    }
++
+     /**
+      * Gets the look back duration.
+      *
+@@ -421,7 +431,7 @@ public class ResilientPooledObjectFactory<T, E extends Exception> implements Poo
+         } catch (final Throwable t) {
+             makeEvent.setSuccess(false);
+             makeEvent.setException(t);
+-            exceptionCounts.put(t.getClass(), exceptionCounts.getOrDefault(t, 0) + 1);
++            exceptionCounts.put(t.getClass(), exceptionCounts.getOrDefault(t.getClass(), 0) + 1);
+             throw t;
+         } finally {
+             makeEvent.end();
+diff --git a/src/test/java/org/apache/commons/pool3/impl/TestResilientPooledObjectFactory.java b/src/test/java/org/apache/commons/pool3/impl/TestResilientPooledObjectFactory.java
+index 242106c0..7cac9a42 100644
+--- a/src/test/java/org/apache/commons/pool3/impl/TestResilientPooledObjectFactory.java
++++ b/src/test/java/org/apache/commons/pool3/impl/TestResilientPooledObjectFactory.java
+@@ -331,4 +331,23 @@ class TestResilientPooledObjectFactory {
+         pool.close();
+         rf.stopMonitor();
+     }
++
++    @Test
++    void testExceptionCountsAccumulateForSameType() throws Exception {
++        final FailingFactory ff = new FailingFactory();
++        ff.setSilentFail(false);
++        final ResilientPooledObjectFactory<String, Exception> rf = new ResilientPooledObjectFactory<>(ff);
++        ff.crash();
++        try {
++            rf.makeObject();
++        } catch (final Exception e) {
++            // expected
++        }
++        try {
++            rf.makeObject();
++        } catch (final Exception e) {
++            // expected
++        }
++        assertEquals(2, rf.getExceptionCount(Exception.class));
++    }
+ }

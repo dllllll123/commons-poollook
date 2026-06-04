@@ -331,4 +331,23 @@ class TestResilientPooledObjectFactory {
         pool.close();
         rf.stopMonitor();
     }
+
+    @Test
+    void testExceptionCountsAccumulateForSameType() throws Exception {
+        final FailingFactory ff = new FailingFactory();
+        ff.setSilentFail(false);
+        final ResilientPooledObjectFactory<String, Exception> rf = new ResilientPooledObjectFactory<>(ff);
+        ff.crash();
+        try {
+            rf.makeObject();
+        } catch (final Exception e) {
+            // expected
+        }
+        try {
+            rf.makeObject();
+        } catch (final Exception e) {
+            // expected
+        }
+        assertEquals(2, rf.getExceptionCount(Exception.class));
+    }
 }
