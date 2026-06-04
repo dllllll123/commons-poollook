@@ -941,6 +941,11 @@ public abstract class BaseGenericObjectPool<T, E extends Exception> extends Base
         return ac != null && ac.getRemoveAbandonedOnBorrow();
     }
 
+    protected boolean isRemoveAbandonedOnBorrowNeeded(final AbandonedConfig abandonedConfig, final int numActive) {
+        return abandonedConfig != null && abandonedConfig.getRemoveAbandonedOnBorrow() && getNumIdle() < 2 &&
+                numActive > getMaxTotal() - 3;
+    }
+
     /**
      * Gets whether a check is made for abandoned objects when the evictor runs.
      *
