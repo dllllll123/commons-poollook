@@ -331,4 +331,29 @@ class TestResilientPooledObjectFactory {
         pool.close();
         rf.stopMonitor();
     }
+
+    @Test
+    void testSameExceptionTypeCountedTwice() throws Exception {
+        final FailingFactory ff = new FailingFactory();
+        // Make the factory fail with exception immediately on make
+        ff.setHang(false);
+        ff.setSilentFail(false);
+        final ResilientPooledObjectFactory<String, Exception> rf = new ResilientPooledObjectFactory<>(ff,
+                5, Duration.ofMillis(100), Duration.ofMinutes(10), Duration.ofMillis(100));
+        // Crash the base factory
+        ff.crash();
+        // Call makeObject twice
+        try {
+            rf.makeObject();
+        } catch (final Exception e) {
+            // Expected
+        }
+        try {
+            rf.makeObject();
+        } catch (final Exception e) {
+            // Expected
+        }
+        // Verify that the exception count is 2
+        assertEquals(2, rf.getExceptionCounts().get(Exception.class));
+    }
 }

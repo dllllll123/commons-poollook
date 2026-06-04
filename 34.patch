@@ -1,0 +1,64 @@
+diff --git a/src/main/java/org/apache/commons/pool3/impl/ResilientPooledObjectFactory.java b/src/main/java/org/apache/commons/pool3/impl/ResilientPooledObjectFactory.java
+index 0f1de832..1b5f97fe 100644
+--- a/src/main/java/org/apache/commons/pool3/impl/ResilientPooledObjectFactory.java
++++ b/src/main/java/org/apache/commons/pool3/impl/ResilientPooledObjectFactory.java
+@@ -381,6 +381,16 @@ public class ResilientPooledObjectFactory<T, E extends Exception> implements Poo
+         return upStart;
+     }
+ 
++    /**
++     * Gets the exception counts map.
++     *
++     * @return the exception counts map
++     */
++    @SuppressWarnings("rawtypes")
++    public ConcurrentHashMap<Class, Integer> getExceptionCounts() {
++        return new ConcurrentHashMap<>(exceptionCounts);
++    }
++
+     /**
+      * Tests whether the adder is running.
+      *
+@@ -421,7 +431,7 @@ public class ResilientPooledObjectFactory<T, E extends Exception> implements Poo
+         } catch (final Throwable t) {
+             makeEvent.setSuccess(false);
+             makeEvent.setException(t);
+-            exceptionCounts.put(t.getClass(), exceptionCounts.getOrDefault(t, 0) + 1);
++            exceptionCounts.put(t.getClass(), exceptionCounts.getOrDefault(t.getClass(), 0) + 1);
+             throw t;
+         } finally {
+             makeEvent.end();
+diff --git a/src/test/java/org/apache/commons/pool3/impl/TestResilientPooledObjectFactory.java b/src/test/java/org/apache/commons/pool3/impl/TestResilientPooledObjectFactory.java
+index 242106c0..6117e964 100644
+--- a/src/test/java/org/apache/commons/pool3/impl/TestResilientPooledObjectFactory.java
++++ b/src/test/java/org/apache/commons/pool3/impl/TestResilientPooledObjectFactory.java
+@@ -331,4 +331,29 @@ class TestResilientPooledObjectFactory {
+         pool.close();
+         rf.stopMonitor();
+     }
++
++    @Test
++    void testSameExceptionTypeCountedTwice() throws Exception {
++        final FailingFactory ff = new FailingFactory();
++        // Make the factory fail with exception immediately on make
++        ff.setHang(false);
++        ff.setSilentFail(false);
++        final ResilientPooledObjectFactory<String, Exception> rf = new ResilientPooledObjectFactory<>(ff,
++                5, Duration.ofMillis(100), Duration.ofMinutes(10), Duration.ofMillis(100));
++        // Crash the base factory
++        ff.crash();
++        // Call makeObject twice
++        try {
++            rf.makeObject();
++        } catch (final Exception e) {
++            // Expected
++        }
++        try {
++            rf.makeObject();
++        } catch (final Exception e) {
++            // Expected
++        }
++        // Verify that the exception count is 2
++        assertEquals(2, rf.getExceptionCounts().get(Exception.class));
++    }
+ }

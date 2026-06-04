@@ -382,6 +382,16 @@ public class ResilientPooledObjectFactory<T, E extends Exception> implements Poo
     }
 
     /**
+     * Gets the exception counts map.
+     *
+     * @return the exception counts map
+     */
+    @SuppressWarnings("rawtypes")
+    public ConcurrentHashMap<Class, Integer> getExceptionCounts() {
+        return new ConcurrentHashMap<>(exceptionCounts);
+    }
+
+    /**
      * Tests whether the adder is running.
      *
      * @return true if the adder is running.
@@ -421,7 +431,7 @@ public class ResilientPooledObjectFactory<T, E extends Exception> implements Poo
         } catch (final Throwable t) {
             makeEvent.setSuccess(false);
             makeEvent.setException(t);
-            exceptionCounts.put(t.getClass(), exceptionCounts.getOrDefault(t, 0) + 1);
+            exceptionCounts.put(t.getClass(), exceptionCounts.getOrDefault(t.getClass(), 0) + 1);
             throw t;
         } finally {
             makeEvent.end();
