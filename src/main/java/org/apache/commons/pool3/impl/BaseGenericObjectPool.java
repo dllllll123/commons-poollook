@@ -909,6 +909,23 @@ public abstract class BaseGenericObjectPool<T, E extends Exception> extends Base
     public abstract int getNumIdle();
 
     /**
+     * Gets the number of instances currently borrowed from this pool.
+     *
+     * @return count of instances borrowed from the pool
+     */
+    protected abstract int getNumActive();
+
+    /**
+     * Checks whether to remove abandoned objects on borrow.
+     *
+     * @return true if abandoned objects should be removed
+     */
+    protected boolean isRemoveAbandonedOnBorrow() {
+        final AbandonedConfig ac = this.abandonedConfig;
+        return ac != null && ac.getRemoveAbandonedOnBorrow() && getNumIdle() < 2 && getNumActive() > getMaxTotal() - 3;
+    }
+
+    /**
      * Gets the maximum number of objects to examine during each run (if any)
      * of the idle object evictor thread. When positive, the number of tests
      * performed for a run will be the minimum of the configured value and the

@@ -423,8 +423,7 @@ public class GenericKeyedObjectPool<K, T, E extends Exception> extends BaseGener
         assertOpen();
 
         final AbandonedConfig ac = this.abandonedConfig;
-        if (ac != null && ac.getRemoveAbandonedOnBorrow() && getNumIdle() < 2 &&
-                getNumActive() > getMaxTotal() - 3) {
+        if (isRemoveAbandonedOnBorrow()) {
             removeAbandoned(ac);
         }
 

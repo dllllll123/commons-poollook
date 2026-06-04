@@ -1,0 +1,55 @@
+diff --git a/src/main/java/org/apache/commons/pool3/impl/BaseGenericObjectPool.java b/src/main/java/org/apache/commons/pool3/impl/BaseGenericObjectPool.java
+index 1b4cf354..b1412116 100644
+--- a/src/main/java/org/apache/commons/pool3/impl/BaseGenericObjectPool.java
++++ b/src/main/java/org/apache/commons/pool3/impl/BaseGenericObjectPool.java
+@@ -908,6 +908,23 @@ public abstract class BaseGenericObjectPool<T, E extends Exception> extends Base
+      */
+     public abstract int getNumIdle();
+ 
++    /**
++     * Gets the number of instances currently borrowed from this pool.
++     *
++     * @return count of instances borrowed from the pool
++     */
++    protected abstract int getNumActive();
++
++    /**
++     * Checks whether to remove abandoned objects on borrow.
++     *
++     * @return true if abandoned objects should be removed
++     */
++    protected boolean isRemoveAbandonedOnBorrow() {
++        final AbandonedConfig ac = this.abandonedConfig;
++        return ac != null && ac.getRemoveAbandonedOnBorrow() && getNumIdle() < 2 && getNumActive() > getMaxTotal() - 3;
++    }
++
+     /**
+      * Gets the maximum number of objects to examine during each run (if any)
+      * of the idle object evictor thread. When positive, the number of tests
+diff --git a/src/main/java/org/apache/commons/pool3/impl/GenericKeyedObjectPool.java b/src/main/java/org/apache/commons/pool3/impl/GenericKeyedObjectPool.java
+index 781371b8..202fa723 100644
+--- a/src/main/java/org/apache/commons/pool3/impl/GenericKeyedObjectPool.java
++++ b/src/main/java/org/apache/commons/pool3/impl/GenericKeyedObjectPool.java
+@@ -423,8 +423,7 @@ public class GenericKeyedObjectPool<K, T, E extends Exception> extends BaseGener
+         assertOpen();
+ 
+         final AbandonedConfig ac = this.abandonedConfig;
+-        if (ac != null && ac.getRemoveAbandonedOnBorrow() && getNumIdle() < 2 &&
+-                getNumActive() > getMaxTotal() - 3) {
++        if (isRemoveAbandonedOnBorrow()) {
+             removeAbandoned(ac);
+         }
+ 
+diff --git a/src/main/java/org/apache/commons/pool3/impl/GenericObjectPool.java b/src/main/java/org/apache/commons/pool3/impl/GenericObjectPool.java
+index fcfecd2b..83070644 100644
+--- a/src/main/java/org/apache/commons/pool3/impl/GenericObjectPool.java
++++ b/src/main/java/org/apache/commons/pool3/impl/GenericObjectPool.java
+@@ -289,7 +289,7 @@ public class GenericObjectPool<T, E extends Exception> extends BaseGenericObject
+         final boolean negativeDuration = maxWaitDuration.isNegative();
+         Duration remainingWaitDuration = maxWaitDuration;
+         final AbandonedConfig ac = this.abandonedConfig;
+-        if (ac != null && ac.getRemoveAbandonedOnBorrow() && getNumIdle() < 2 && getNumActive() > getMaxTotal() - 3) {
++        if (isRemoveAbandonedOnBorrow()) {
+             removeAbandoned(ac);
+         }
+         PooledObject<T> p = null;
