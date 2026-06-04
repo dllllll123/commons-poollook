@@ -179,5 +179,124 @@ public class StringBufferFactory
       </p>
 <source>ReaderUtil readerUtil = new ReaderUtil(new GenericObjectPool&lt;StringBuffer&gt;(new StringBufferFactory()));</source>
       </section>
+      <section name="KeyedObjectPool">
+       <p>
+        Sometimes you need to pool objects that are not all interchangeable.
+        For example, you may want to reuse network connections to different
+        remote hosts, formatters for different locales, or buffers sized for
+        different workloads. A plain <code>ObjectPool</code> would mix them
+        together, making it impossible to guarantee that a borrowed object
+        matches the caller's intent.
+       </p>
+       <p>
+        <code>KeyedObjectPool</code> solves this by maintaining a
+        <em>separate</em> pool of objects for each key. When you borrow with
+        a key, you always get an object that was created specifically for
+        that key. The built-in implementation is
+        <a href="./apidocs/org/apache/commons/pool3/impl/GenericKeyedObjectPool.html">
+        <code>GenericKeyedObjectPool</code></a>.
+       </p>
+       <p>
+        Here is a <code>BaseKeyedPooledObjectFactory</code> that creates
+        <code>StringBuilder</code> instances with different initial
+        capacities depending on the key:
+       </p>
+<source>
+import org.apache.commons.pool3.BaseKeyedPooledObjectFactory;
+import org.apache.commons.pool3.PooledObject;
+import org.apache.commons.pool3.impl.DefaultPooledObject;
+
+public class Factory
+        extends BaseKeyedPooledObjectFactory&lt;String, StringBuilder, RuntimeException&gt; {
+
+    @Override
+    public StringBuilder create(String key) {
+        int capacity;
+        switch (key) {
+            case "SMALL":
+                capacity = 64;
+                break;
+            case "MEDIUM":
+                capacity = 256;
+                break;
+            case "LARGE":
+                capacity = 1024;
+                break;
+            default:
+                capacity = 128;
+        }
+        return new StringBuilder(capacity);
+    }
+
+    @Override
+    public PooledObject&lt;StringBuilder&gt; wrap(StringBuilder value) {
+        return new DefaultPooledObject&lt;&gt;(value);
+    }
+
+    @Override
+    public void passivateObject(String key, PooledObject&lt;StringBuilder&gt; p) {
+        p.getObject().setLength(0);
+    }
+}
+</source>
+       <p>
+        The <code>KeyedObjectPool</code> client borrows and returns objects by
+        key, so buffers allocated for large workloads never leak into the
+        small-buffer pool:
+       </p>
+<source>
+import org.apache.commons.pool3.KeyedObjectPool;
+import org.apache.commons.pool3.impl.GenericKeyedObjectPool;
+
+public class KeyedPoolExample {
+
+    private KeyedObjectPool&lt;String, StringBuilder&gt; pool;
+
+    public KeyedPoolExample(KeyedObjectPool&lt;String, StringBuilder&gt; pool) {
+        this.pool = pool;
+    }
+
+    public String build(String key, String... lines) {
+        StringBuilder buf = null;
+        try {
+            buf = pool.borrowObject(key);
+            for (String line : lines) {
+                buf.append(line);
+            }
+            return buf.toString();
+        } catch (Exception e) {
+            throw new RuntimeException(
+                "Unable to borrow buffer for key=" + key, e);
+        } finally {
+            try {
+                if (buf != null) {
+                    pool.returnObject(key, buf);
+                }
+            } catch (Exception e) {
+                // ignored
+            }
+        }
+    }
+}
+</source>
+       <p>
+        Instantiate the pool with the factory, inject it into the client,
+        and you are ready to go:
+       </p>
+<source>
+KeyedPoolExample example = new KeyedPoolExample(
+    new GenericKeyedObjectPool&lt;&gt;(new Factory()));
+String result = example.build("MEDIUM", "Hello, ", "KeyedObjectPool!");
+</source>
+       <p>
+        <strong>When to use a keyed pool.</strong> Keyed pools shine when
+        objects of different "categories" must be pooled independently:
+        FTP clients by server hostname, JDBC connections by database URL,
+        formatters by locale, or — as shown here — buffers by expected
+        size. Each key manages its own queue of idle objects and its own
+        capacity limits, so a shortage under one key never starves
+        consumers of another key.
+       </p>
+      </section>
    </body>
 </document>
