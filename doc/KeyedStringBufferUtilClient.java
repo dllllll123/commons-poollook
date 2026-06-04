@@ -25,19 +25,33 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
 
-import org.apache.commons.pool3.impl.GenericObjectPool;
+import org.apache.commons.pool3.impl.GenericKeyedObjectPool;
 
 /**
- * Instantiates and uses a ReaderUtil. The GenericObjectPool supplied to the constructor will have
- * default configuration properties.
+ * Instantiates and uses a KeyedStringBufferUtil. The GenericKeyedObjectPool
+ * supplied to the constructor will have default configuration properties.
+ * This demonstrates how keyed pool can manage different categories of
+ * objects (in this case, StringBuffers with different initial capacities).
  */
-public class ReaderUtilClient {
+public class KeyedStringBufferUtilClient {
 
     public static void main(String[] args) {
-        ReaderUtil readerUtil = new ReaderUtil(new GenericObjectPool<StringBuffer, RuntimeException>(new StringBufferFactory()));
-        Reader reader = new StringReader("foo");
+        KeyedStringBufferUtil keyedUtil = new KeyedStringBufferUtil(
+            new GenericKeyedObjectPool<Integer, StringBuffer, RuntimeException>(new KeyedStringBufferFactory())
+        );
+        
+        // Use small capacity for short string
+        Reader shortReader = new StringReader("Hello World!");
         try {
-            System.out.println(readerUtil.readToString(reader));
+            System.out.println("Short string: " + keyedUtil.readToString(shortReader, 16));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        
+        // Use large capacity for longer string
+        Reader longReader = new StringReader("This is a much longer string that benefits from a larger initial capacity.");
+        try {
+            System.out.println("Long string: " + keyedUtil.readToString(longReader, 128));
         } catch (IOException e) {
             e.printStackTrace();
         }

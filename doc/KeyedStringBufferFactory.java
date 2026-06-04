@@ -21,19 +21,19 @@
  * It is not intended to be included in a source release.
  */
 
-import org.apache.commons.pool3.BasePooledObjectFactory;
+import org.apache.commons.pool3.BaseKeyedPooledObjectFactory;
 import org.apache.commons.pool3.PooledObject;
 import org.apache.commons.pool3.impl.DefaultPooledObject;
 
 /**
- * Example PooledObjectFactory for pooled StringBuffers.
+ * Example KeyedPooledObjectFactory for pooled StringBuffers keyed by initial capacity.
  */
-public class StringBufferFactory
-    extends BasePooledObjectFactory<StringBuffer, RuntimeException> {
+public class KeyedStringBufferFactory
+    extends BaseKeyedPooledObjectFactory<Integer, StringBuffer, RuntimeException> {
 
     @Override
-    public StringBuffer create() {
-        return new StringBuffer();
+    public StringBuffer create(Integer initialCapacity) {
+        return new StringBuffer(initialCapacity);
     }
 
     /**
@@ -48,10 +48,10 @@ public class StringBufferFactory
      * When an object is returned to the pool, clear the buffer.
      */
     @Override
-    public void passivateObject(PooledObject<StringBuffer> pooledObject) {
+    public void passivateObject(Integer key, PooledObject<StringBuffer> pooledObject) {
         pooledObject.getObject().setLength(0);
     }
 
     // for all other methods, the no-op implementation
-    // in BasePooledObjectFactory will suffice
+    // in BaseKeyedPooledObjectFactory will suffice
 }

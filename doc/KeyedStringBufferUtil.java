@@ -24,27 +24,29 @@
 import java.io.IOException;
 import java.io.Reader;
 
-import org.apache.commons.pool3.ObjectPool;
+import org.apache.commons.pool3.KeyedObjectPool;
 
 /**
- * Maintains a pool of StringBuffers used to dump contents of Readers.
+ * Maintains a keyed pool of StringBuffers used to dump contents of Readers.
+ * Different keys represent different initial capacities of StringBuffers.
  */
-public class ReaderUtil {
+public class KeyedStringBufferUtil {
 
-    private ObjectPool<StringBuffer, ? extends Exception> pool;
+    private KeyedObjectPool<Integer, StringBuffer, ? extends Exception> pool;
 
-    public ReaderUtil(ObjectPool<StringBuffer, ? extends Exception> pool) {
+    public KeyedStringBufferUtil(KeyedObjectPool<Integer, StringBuffer, ? extends Exception> pool) {
         this.pool = pool;
     }
 
     /**
-     * Dumps the contents of the {@link Reader} to a String, closing the {@link Reader} when done.
+     * Dumps the contents of the {@link Reader} to a String, using a StringBuffer
+     * with the specified initial capacity, closing the {@link Reader} when done.
      */
-    public String readToString(Reader in)
+    public String readToString(Reader in, int initialCapacity)
         throws IOException {
         StringBuffer buf = null;
         try {
-            buf = pool.borrowObject();
+            buf = pool.borrowObject(initialCapacity);
             for (int c = in.read(); c != -1; c = in.read()) {
                 buf.append((char) c);
             }
@@ -61,7 +63,7 @@ public class ReaderUtil {
             }
             try {
                 if (null != buf) {
-                    pool.returnObject(buf);
+                    pool.returnObject(initialCapacity, buf);
                 }
             } catch (Exception e) {
                 // ignored

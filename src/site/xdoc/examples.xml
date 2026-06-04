@@ -81,9 +81,9 @@ import org.apache.commons.pool3.ObjectPool;
 
 public class ReaderUtil {
     
-    private ObjectPool&lt;StringBuffer&gt; pool;
+    private ObjectPool&lt;StringBuffer, ? extends Exception&gt; pool;
     
-    public ReaderUtil(ObjectPool&lt;StringBuffer&gt; pool) {
+    public ReaderUtil(ObjectPool&lt;StringBuffer, ? extends Exception&gt; pool) {
         this.pool = pool;
     }
 
@@ -129,11 +129,11 @@ public class ReaderUtil {
       </section>
       <section name="A PooledObjectFactory">
        <p>
-        The implementations provided in pool2 wrap pooled objects in <code>PooledObject</code>
+        The implementations provided in pool3 wrap pooled objects in <code>PooledObject</code>
         wrappers for internal use by the pool and object factories.  The <code>PooledObjectFactory</code>
         interface defines lifecycle methods for pooled objects. The simplest way to implement a
         <code>PoolableObjectFactory</code> is to extend
-        <a href="./apidocs/org/apache/commons/pool2/BasePooledObjectFactory.html">
+        <a href="./apidocs/org/apache/commons/pool3/BasePooledObjectFactory.html">
         <code>BasePooledObjectFactory</code></a>.
        </p>
        <p>
@@ -146,7 +146,7 @@ import org.apache.commons.pool3.PooledObject;
 import org.apache.commons.pool3.impl.DefaultPooledObject;
 
 public class StringBufferFactory
-    extends BasePooledObjectFactory&lt;StringBuffer&gt; {
+    extends BasePooledObjectFactory&lt;StringBuffer, RuntimeException&gt; {
 
     @Override
     public StringBuffer create() {
@@ -177,7 +177,120 @@ public class StringBufferFactory
        We can, for example, use this factory with the <code>GenericObjectPool</code> to instantiate our
        <code>ReaderUtil</code> as follows:
       </p>
-<source>ReaderUtil readerUtil = new ReaderUtil(new GenericObjectPool&lt;StringBuffer&gt;(new StringBufferFactory()));</source>
+<source>ReaderUtil readerUtil = new ReaderUtil(new GenericObjectPool&lt;StringBuffer, RuntimeException&gt;(new StringBufferFactory()));</source>
+      </section>
+      <section name="KeyedObjectPool 用法示例">
+       <p>
+        When you need to pool different categories or types of objects, a <code>KeyedObjectPool</code> is an
+        excellent choice. Instead of maintaining separate pools for each category, you can use a keyed pool
+        to manage all categories from a single pool instance. For example, if you need StringBuffers of
+        different initial capacities, you can use the capacity as the key and the keyed pool will maintain
+        separate sub-pools for each capacity.
+       </p>
+       <p>
+        Here's a <code>KeyedPooledObjectFactory</code> implementation that creates
+        <code>StringBuffer</code>s with different initial capacities keyed by the capacity value:
+       </p>
+<source>
+import org.apache.commons.pool3.BaseKeyedPooledObjectFactory;
+import org.apache.commons.pool3.PooledObject;
+import org.apache.commons.pool3.impl.DefaultPooledObject;
+
+public class KeyedStringBufferFactory
+    extends BaseKeyedPooledObjectFactory&lt;Integer, StringBuffer, RuntimeException&gt; {
+
+    @Override
+    public StringBuffer create(Integer initialCapacity) {
+        return new StringBuffer(initialCapacity);
+    }
+
+    /**
+     * Use the default PooledObject implementation.
+     */
+    @Override
+    public PooledObject&lt;StringBuffer&gt; wrap(StringBuffer buffer) {
+        return new DefaultPooledObject&lt;StringBuffer&gt;(buffer);
+    }
+
+    /**
+     * When an object is returned to the pool, clear the buffer.
+     */
+    @Override
+    public void passivateObject(Integer key, PooledObject&lt;StringBuffer&gt; pooledObject) {
+        pooledObject.getObject().setLength(0);
+    }
+
+    // for all other methods, the no-op implementation
+    // in BaseKeyedPooledObjectFactory will suffice
+}
+</source>
+       <p>
+        Here's the client code using the keyed pool:
+       </p>
+<source>
+import java.io.IOException;
+import java.io.Reader;
+import org.apache.commons.pool3.KeyedObjectPool;
+
+public class KeyedStringBufferUtil {
+
+    private KeyedObjectPool&lt;Integer, StringBuffer, ? extends Exception&gt; pool;
+
+    public KeyedStringBufferUtil(KeyedObjectPool&lt;Integer, StringBuffer, ? extends Exception&gt; pool) {
+        this.pool = pool;
+    }
+
+    /**
+     * Dumps the contents of the {@link Reader} to a String, using a StringBuffer
+     * with the specified initial capacity, closing the {@link Reader} when done.
+     */
+    public String readToString(Reader in, int initialCapacity)
+        throws IOException {
+        StringBuffer buf = null;
+        try {
+            buf = pool.borrowObject(initialCapacity);
+            for (int c = in.read(); c != -1; c = in.read()) {
+                buf.append((char) c);
+            }
+            return buf.toString();
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("Unable to borrow buffer from pool" + e.toString());
+        } finally {
+            try {
+                in.close();
+            } catch (Exception e) {
+                // ignored
+            }
+            try {
+                if (null != buf) {
+                    pool.returnObject(initialCapacity, buf);
+                }
+            } catch (Exception e) {
+                // ignored
+            }
+        }
+    }
+}
+</source>
+      <p>
+       We can use this factory with the <code>GenericKeyedObjectPool</code> to instantiate our
+       <code>KeyedStringBufferUtil</code> and use different keys for different scenarios:
+      </p>
+<source>
+KeyedStringBufferUtil keyedUtil = new KeyedStringBufferUtil(
+    new GenericKeyedObjectPool<Integer, StringBuffer, RuntimeException>(new KeyedStringBufferFactory())
+);
+
+// Use small capacity for short string
+Reader shortReader = new StringReader("Hello World!");
+System.out.println("Short string: " + keyedUtil.readToString(shortReader, 16));
+
+// Use large capacity for longer string
+Reader longReader = new StringReader("This is a much longer string that benefits from a larger initial capacity.");
+System.out.println("Long string: " + keyedUtil.readToString(longReader, 128));
+</source>
       </section>
    </body>
 </document>
