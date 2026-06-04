@@ -288,8 +288,8 @@ public class GenericObjectPool<T, E extends Exception> extends BaseGenericObject
         final Instant startInstant = Instant.now();
         final boolean negativeDuration = maxWaitDuration.isNegative();
         Duration remainingWaitDuration = maxWaitDuration;
-        final AbandonedConfig ac = this.abandonedConfig;
-        if (ac != null && ac.getRemoveAbandonedOnBorrow() && getNumIdle() < 2 && getNumActive() > getMaxTotal() - 3) {
+        final AbandonedConfig ac = checkRemoveAbandonedOnBorrow();
+        if (ac != null) {
             removeAbandoned(ac);
         }
         PooledObject<T> p = null;

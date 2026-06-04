@@ -512,6 +512,21 @@ public abstract class BaseGenericObjectPool<T, E extends Exception> extends Base
     }
 
     /**
+     * Checks if abandoned object removal should be performed on borrow.
+     *
+     * @return The abandoned configuration if removal should be performed;
+     *         {@code null} otherwise.
+     * @since 2.13.0
+     */
+    protected final AbandonedConfig checkRemoveAbandonedOnBorrow() {
+        final AbandonedConfig ac = this.abandonedConfig;
+        if (ac != null && ac.getRemoveAbandonedOnBorrow() && getNumIdle() < 2 && getNumActive() > getMaxTotal() - 3) {
+            return ac;
+        }
+        return null;
+    }
+
+    /**
      * Tries to ensure that the configured minimum number of idle instances are
      * available in the pool.
      *
@@ -907,6 +922,13 @@ public abstract class BaseGenericObjectPool<T, E extends Exception> extends Base
      * @return count of instances available for checkout from the pool
      */
     public abstract int getNumIdle();
+
+    /**
+     * Gets the number of instances currently borrowed from this pool.
+     *
+     * @return count of instances currently borrowed from this pool
+     */
+    public abstract int getNumActive();
 
     /**
      * Gets the maximum number of objects to examine during each run (if any)
