@@ -179,5 +179,118 @@ public class StringBufferFactory
       </p>
 <source>ReaderUtil readerUtil = new ReaderUtil(new GenericObjectPool&lt;StringBuffer&gt;(new StringBufferFactory()));</source>
       </section>
+      <section name="A KeyedObjectPool">
+       <p>
+        A <code>KeyedObjectPool</code> is useful when you need to maintain separate pools of objects
+        for different categories, each identified by a unique key. For example, if your application
+        connects to multiple databases (e.g., "primary", "replica"), a keyed pool allows you to
+        reuse connections per database without mixing them. Each key maps to its own independent
+        sub-pool, so objects borrowed under one key are never returned under another.
+       </p>
+       <p>
+        Here's a <code>KeyedPooledObjectFactory</code> implementation that creates
+        <code>Connection</code>s keyed by a database identifier string.
+       </p>
+<source>
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import org.apache.commons.pool3.BaseKeyedPooledObjectFactory;
+import org.apache.commons.pool3.PooledObject;
+import org.apache.commons.pool3.impl.DefaultPooledObject;
+
+public class ConnectionKeyedFactory
+    extends BaseKeyedPooledObjectFactory&lt;String, Connection, SQLException&gt; {
+
+    @Override
+    public Connection create(String key) throws SQLException {
+        String url = "jdbc:mysql://localhost:3306/" + key;
+        return DriverManager.getConnection(url);
+    }
+
+    @Override
+    public PooledObject&lt;Connection&gt; wrap(Connection connection) {
+        return new DefaultPooledObject&lt;Connection&gt;(connection);
+    }
+
+    /**
+     * When a connection is returned to the pool, ensure it is still valid
+     * and reset auto-commit to the default state.
+     */
+    @Override
+    public void passivateObject(String key, PooledObject&lt;Connection&gt; pooledObject)
+        throws SQLException {
+        Connection conn = pooledObject.getObject();
+        if (conn.isClosed()) {
+            throw new SQLException("Connection is closed");
+        }
+        conn.setAutoCommit(true);
+    }
+
+    @Override
+    public boolean validateObject(String key, PooledObject&lt;Connection&gt; pooledObject) {
+        try {
+            return !pooledObject.getObject().isClosed();
+        } catch (SQLException e) {
+            return false;
+        }
+    }
+
+    @Override
+    public void destroyObject(String key, PooledObject&lt;Connection&gt; pooledObject)
+        throws SQLException {
+        pooledObject.getObject().close();
+    }
+}
+</source>
+       <p>
+        With this factory, you can create a <code>KeyedConnectionManager</code> that borrows
+        and returns connections using a database key:
+       </p>
+<source>
+import java.sql.Connection;
+import java.sql.SQLException;
+import org.apache.commons.pool3.KeyedObjectPool;
+
+public class KeyedConnectionManager {
+
+    private KeyedObjectPool&lt;String, Connection&gt; pool;
+
+    public KeyedConnectionManager(KeyedObjectPool&lt;String, Connection&gt; pool) {
+        this.pool = pool;
+    }
+
+    /**
+     * Executes a query against the database identified by the given key,
+     * returning the connection to the pool when done.
+     */
+    public void executeQuery(String dbKey, String sql)
+        throws SQLException {
+        Connection conn = null;
+        try {
+            conn = pool.borrowObject(dbKey);
+            conn.createStatement().executeQuery(sql);
+        } catch (SQLException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("Unable to borrow connection from pool: " + e.toString());
+        } finally {
+            try {
+                if (null != conn) {
+                    pool.returnObject(dbKey, conn);
+                }
+            } catch (Exception e) {
+                // ignored
+            }
+        }
+    }
+}
+</source>
+      <p>
+       We can, for example, use this factory with the <code>GenericKeyedObjectPool</code> to instantiate our
+       <code>KeyedConnectionManager</code> as follows:
+      </p>
+<source>KeyedConnectionManager manager = new KeyedConnectionManager(new GenericKeyedObjectPool&lt;String, Connection&gt;(new ConnectionKeyedFactory()));</source>
+      </section>
    </body>
 </document>
