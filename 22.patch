@@ -1,0 +1,122 @@
+diff --git a/src/site/xdoc/examples.xml b/src/site/xdoc/examples.xml
+index dfdc8afd..63cd04ff 100644
+--- a/src/site/xdoc/examples.xml
++++ b/src/site/xdoc/examples.xml
+@@ -129,11 +129,11 @@ public class ReaderUtil {
+       </section>
+       <section name="A PooledObjectFactory">
+        <p>
+-        The implementations provided in pool2 wrap pooled objects in <code>PooledObject</code>
++        The implementations provided in pool3 wrap pooled objects in <code>PooledObject</code>
+         wrappers for internal use by the pool and object factories.  The <code>PooledObjectFactory</code>
+         interface defines lifecycle methods for pooled objects. The simplest way to implement a
+-        <code>PoolableObjectFactory</code> is to extend
+-        <a href="./apidocs/org/apache/commons/pool2/BasePooledObjectFactory.html">
++         <code>PooledObjectFactory</code> is to extend
++        <a href="./apidocs/org/apache/commons/pool3/BasePooledObjectFactory.html">
+         <code>BasePooledObjectFactory</code></a>.
+        </p>
+        <p>
+@@ -179,5 +179,102 @@ public class StringBufferFactory
+       </p>
+ <source>ReaderUtil readerUtil = new ReaderUtil(new GenericObjectPool&lt;StringBuffer&gt;(new StringBufferFactory()));</source>
+       </section>
++      <section name="A Simple Keyed Pool Client">
++       <p>
++        Suppose you need to maintain objects that are categorized by a key, such as <code>DateFormat</code>s
++        for different format patterns. Because <code>java.text.SimpleDateFormat</code> instances are not thread-safe 
++        and are bound to specific patterns, you cannot share a single pool of formatters for all patterns. 
++        Instead, you need a pool of formatters for each pattern. This is where a <code>KeyedObjectPool</code> is useful.
++       </p>
++       <p>
++        Here is a <code>DateFormatUtil</code> implementation using a <code>KeyedObjectPool</code> of <code>DateFormat</code>s, 
++        keyed by the format pattern (a <code>String</code>):
++       </p>
++<source>
++import java.text.DateFormat;
++import java.util.Date;
++import org.apache.commons.pool3.KeyedObjectPool;
++
++public class DateFormatUtil {
++    
++    private KeyedObjectPool&lt;String, DateFormat&gt; pool;
++    
++    public DateFormatUtil(KeyedObjectPool&lt;String, DateFormat&gt; pool) {
++        this.pool = pool;
++    }
++
++    /**
++     * Formats a Date to a String using the specified format pattern.
++     */
++    public String format(Date date, String formatPattern) {
++        DateFormat format = null;
++        try {
++            format = pool.borrowObject(formatPattern);
++            return format.format(date);
++        } catch (Exception e) {
++            throw new RuntimeException("Unable to borrow DateFormat from pool" + e.toString());
++        } finally {
++            try {
++                if (null != format) {
++                    pool.returnObject(formatPattern, format);
++                }
++            } catch (Exception e) {
++                // ignored
++            }
++        }
++    }
++}
++</source>
++      <p>
++       By using a <code>KeyedObjectPool</code>, we can transparently maintain separate sub-pools for each format pattern.
++       When we call <code>borrowObject(formatPattern)</code>, the pool will return a <code>DateFormat</code> specifically 
++       configured for that pattern, creating a new one if necessary.
++      </p>
++      </section>
++
++      <section name="A KeyedPooledObjectFactory">
++       <p>
++        The implementations provided in pool3 wrap pooled objects in <code>PooledObject</code>
++        wrappers for internal use by the pool and object factories. The <code>KeyedPooledObjectFactory</code>
++        interface defines lifecycle methods for keyed pooled objects. The simplest way to implement a
++        <code>KeyedPooledObjectFactory</code> is to extend
++        <a href="./apidocs/org/apache/commons/pool3/BaseKeyedPooledObjectFactory.html">
++        <code>BaseKeyedPooledObjectFactory</code></a>.
++       </p>
++       <p>
++        Here's a <code>KeyedPooledObjectFactory</code> implementation that creates
++        <code>DateFormat</code>s as used above. Note how the <code>create</code> method takes a <code>key</code> parameter 
++        to instantiate the object appropriately.
++       </p>
++<source>
++import java.text.DateFormat;
++import java.text.SimpleDateFormat;
++import org.apache.commons.pool3.BaseKeyedPooledObjectFactory;
++import org.apache.commons.pool3.PooledObject;
++import org.apache.commons.pool3.impl.DefaultPooledObject;
++
++public class DateFormatFactory
++    extends BaseKeyedPooledObjectFactory&lt;String, DateFormat&gt; {
++
++    @Override
++    public DateFormat create(String key) {
++        return new SimpleDateFormat(key);
++    }
++
++    /**
++     * Use the default PooledObject implementation.
++     */
++    @Override
++    public PooledObject&lt;DateFormat&gt; wrap(DateFormat format) {
++        return new DefaultPooledObject&lt;DateFormat&gt;(format);
++    }
++}
++</source>
++      <p>
++       We can then use this factory with the <code>GenericKeyedObjectPool</code> to instantiate our
++       <code>DateFormatUtil</code> as follows:
++      </p>
++<source>DateFormatUtil formatUtil = new DateFormatUtil(new GenericKeyedObjectPool&lt;String, DateFormat&gt;(new DateFormatFactory()));</source>
++      </section>
+    </body>
+ </document>
