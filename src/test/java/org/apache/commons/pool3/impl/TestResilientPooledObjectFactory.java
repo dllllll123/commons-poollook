@@ -258,6 +258,26 @@ class TestResilientPooledObjectFactory {
     }
 
     @Test
+    void testExceptionCount() throws Exception {
+        final FailingFactory ff = new FailingFactory();
+        ff.setSilentFail(false);
+        final ResilientPooledObjectFactory<String, Exception> rf = new ResilientPooledObjectFactory<>(ff);
+
+        try {
+            rf.makeObject();
+        } catch (final Exception e) {
+            // expected
+        }
+        try {
+            rf.makeObject();
+        } catch (final Exception e) {
+            // expected
+        }
+
+        assertEquals(2, rf.getExceptionCount(Exception.class));
+    }
+
+    @Test
     void testTransientFailure() throws Exception {
         final FailingFactory ff = new FailingFactory();
         // Make the factory fail with exception immediately on make

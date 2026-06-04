@@ -336,6 +336,16 @@ public class ResilientPooledObjectFactory<T, E extends Exception> implements Poo
     }
 
     /**
+     * Gets the count of exceptions of the given type.
+     *
+     * @param exceptionClass the class of the exception to count
+     * @return the number of times the exception has been thrown
+     */
+    public int getExceptionCount(final Class<? extends Throwable> exceptionClass) {
+        return exceptionCounts.getOrDefault(exceptionClass, 0);
+    }
+
+    /**
      * Gets the size of the makeObject log.
      *
      * @return the size of the makeObject log.
@@ -421,7 +431,7 @@ public class ResilientPooledObjectFactory<T, E extends Exception> implements Poo
         } catch (final Throwable t) {
             makeEvent.setSuccess(false);
             makeEvent.setException(t);
-            exceptionCounts.put(t.getClass(), exceptionCounts.getOrDefault(t, 0) + 1);
+            exceptionCounts.put(t.getClass(), exceptionCounts.getOrDefault(t.getClass(), 0) + 1);
             throw t;
         } finally {
             makeEvent.end();

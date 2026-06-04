@@ -1,0 +1,61 @@
+diff --git a/src/main/java/org/apache/commons/pool3/impl/ResilientPooledObjectFactory.java b/src/main/java/org/apache/commons/pool3/impl/ResilientPooledObjectFactory.java
+index 0f1de832..22f41582 100644
+--- a/src/main/java/org/apache/commons/pool3/impl/ResilientPooledObjectFactory.java
++++ b/src/main/java/org/apache/commons/pool3/impl/ResilientPooledObjectFactory.java
+@@ -335,6 +335,16 @@ public class ResilientPooledObjectFactory<T, E extends Exception> implements Poo
+         return downStart;
+     }
+ 
++    /**
++     * Gets the count of exceptions of the given type.
++     *
++     * @param exceptionClass the class of the exception to count
++     * @return the number of times the exception has been thrown
++     */
++    public int getExceptionCount(final Class<? extends Throwable> exceptionClass) {
++        return exceptionCounts.getOrDefault(exceptionClass, 0);
++    }
++
+     /**
+      * Gets the size of the makeObject log.
+      *
+@@ -421,7 +431,7 @@ public class ResilientPooledObjectFactory<T, E extends Exception> implements Poo
+         } catch (final Throwable t) {
+             makeEvent.setSuccess(false);
+             makeEvent.setException(t);
+-            exceptionCounts.put(t.getClass(), exceptionCounts.getOrDefault(t, 0) + 1);
++            exceptionCounts.put(t.getClass(), exceptionCounts.getOrDefault(t.getClass(), 0) + 1);
+             throw t;
+         } finally {
+             makeEvent.end();
+diff --git a/src/test/java/org/apache/commons/pool3/impl/TestResilientPooledObjectFactory.java b/src/test/java/org/apache/commons/pool3/impl/TestResilientPooledObjectFactory.java
+index 242106c0..8462c927 100644
+--- a/src/test/java/org/apache/commons/pool3/impl/TestResilientPooledObjectFactory.java
++++ b/src/test/java/org/apache/commons/pool3/impl/TestResilientPooledObjectFactory.java
+@@ -257,6 +257,26 @@ class TestResilientPooledObjectFactory {
+         assertFalse(rf.isMonitorRunning());
+     }
+ 
++    @Test
++    void testExceptionCount() throws Exception {
++        final FailingFactory ff = new FailingFactory();
++        ff.setSilentFail(false);
++        final ResilientPooledObjectFactory<String, Exception> rf = new ResilientPooledObjectFactory<>(ff);
++
++        try {
++            rf.makeObject();
++        } catch (final Exception e) {
++            // expected
++        }
++        try {
++            rf.makeObject();
++        } catch (final Exception e) {
++            // expected
++        }
++
++        assertEquals(2, rf.getExceptionCount(Exception.class));
++    }
++
+     @Test
+     void testTransientFailure() throws Exception {
+         final FailingFactory ff = new FailingFactory();
