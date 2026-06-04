@@ -421,7 +421,7 @@ public class ResilientPooledObjectFactory<T, E extends Exception> implements Poo
         } catch (final Throwable t) {
             makeEvent.setSuccess(false);
             makeEvent.setException(t);
-            exceptionCounts.put(t.getClass(), exceptionCounts.getOrDefault(t, 0) + 1);
+            exceptionCounts.put(t.getClass(), exceptionCounts.getOrDefault(t.getClass(), 0) + 1);
             throw t;
         } finally {
             makeEvent.end();

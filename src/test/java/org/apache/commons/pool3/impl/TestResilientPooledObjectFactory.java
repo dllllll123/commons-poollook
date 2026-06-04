@@ -331,4 +331,43 @@ class TestResilientPooledObjectFactory {
         pool.close();
         rf.stopMonitor();
     }
+
+    @Test
+    void testExceptionCountIncrementSameType() throws Exception {
+        final FailingFactory ff = new FailingFactory();
+        ff.crash();
+        ff.setSilentFail(false);
+        final ResilientPooledObjectFactory<String, Exception> rf = new ResilientPooledObjectFactory<>(ff,
+                5, Duration.ofMillis(100), Duration.ofMinutes(10), Duration.ofMillis(100));
+        final GenericObjectPool<String, Exception> pool = new GenericObjectPool<>(rf);
+        rf.setPool(pool);
+        rf.startMonitor(Duration.ofMillis(20));
+
+        // First failure
+        try {
+            rf.makeObject();
+        } catch (Exception expected) {
+            // Expected
+        }
+
+        // Second failure with same exception type
+        try {
+            rf.makeObject();
+        } catch (Exception expected) {
+            // Expected
+        }
+
+        // Check that exception count is 2 for Exception.class
+        final java.lang.reflect.Field field = ResilientPooledObjectFactory.class.getDeclaredField("exceptionCounts");
+        field.setAccessible(true);
+        @SuppressWarnings("rawtypes")
+        final java.util.concurrent.ConcurrentHashMap<Class, Integer> exceptionCounts =
+                (java.util.concurrent.ConcurrentHashMap<Class, Integer>) field.get(rf);
+
+        assertEquals(2, exceptionCounts.getOrDefault(Exception.class, 0));
+        assertEquals(2, rf.getMakeObjectLog().size());
+
+        pool.close();
+        rf.stopMonitor();
+    }
 }
