@@ -84,7 +84,6 @@ public class ResilientPooledObjectFactory<T, E extends Exception> implements Poo
                         kill();
                     }
                 } finally {
-                    // Wait for delay
                     try {
                         sleep(delay.toMillis());
                     } catch (final InterruptedException e) {
@@ -335,6 +334,10 @@ public class ResilientPooledObjectFactory<T, E extends Exception> implements Poo
         return downStart;
     }
 
+    int getExceptionCount(final Class<? extends Throwable> exceptionClass) {
+        return exceptionCounts.getOrDefault(exceptionClass, 0);
+    }
+
     /**
      * Gets the size of the makeObject log.
      *
@@ -421,7 +424,7 @@ public class ResilientPooledObjectFactory<T, E extends Exception> implements Poo
         } catch (final Throwable t) {
             makeEvent.setSuccess(false);
             makeEvent.setException(t);
-            exceptionCounts.put(t.getClass(), exceptionCounts.getOrDefault(t, 0) + 1);
+            exceptionCounts.put(t.getClass(), exceptionCounts.getOrDefault(t.getClass(), 0) + 1);
             throw t;
         } finally {
             makeEvent.end();
@@ -452,14 +455,6 @@ public class ResilientPooledObjectFactory<T, E extends Exception> implements Poo
      */
     protected void runChecks() {
         boolean upOverLog = true;
-        // 1. If the log is full, remove the oldest (first) event.
-        //
-        // 2. Walk the event log. If we find a failure, set downStart, set up to false
-        // and start the adder thread.
-        //
-        // 3. If the log contains only successes, if up is false, set upStart and up to
-        // true
-        // and kill the adder thread.
         while (makeObjectLog.size() > logSize) {
             makeObjectLog.poll();
         }
@@ -476,7 +471,6 @@ public class ResilientPooledObjectFactory<T, E extends Exception> implements Poo
 
         }
         if (upOverLog && !up) {
-            // Kill adder thread and set up to true
             upStart = Instant.now();
             up = true;
             adder.kill();
