@@ -31,10 +31,9 @@ import org.apache.commons.pool3.UsageTracking;
  * @param <E> type of the exception
  * @since 2.0
  */
-public class ProxiedObjectPool<T, E extends Exception> implements ObjectPool<T, E> {
+public class ProxiedObjectPool<T, E extends Exception> extends AbstractProxiedObjectPool<T> implements ObjectPool<T, E> {
 
     private final ObjectPool<T, E> pool;
-    private final ProxySource<T> proxySource;
 
     /**
      * Constructs a new proxied object pool.
@@ -43,8 +42,8 @@ public class ProxiedObjectPool<T, E extends Exception> implements ObjectPool<T, 
      * @param proxySource The source of the proxy objects
      */
     public ProxiedObjectPool(final ObjectPool<T, E> pool, final ProxySource<T> proxySource) {
+        super(proxySource);
         this.pool = pool;
-        this.proxySource = proxySource;
     }
 
     @Override
@@ -52,14 +51,9 @@ public class ProxiedObjectPool<T, E extends Exception> implements ObjectPool<T, 
         pool.addObject();
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public T borrowObject() throws E, NoSuchElementException, IllegalStateException {
-        UsageTracking<T> usageTracking = null;
-        if (pool instanceof UsageTracking) {
-            usageTracking = (UsageTracking<T>) pool;
-        }
-        return proxySource.createProxy(pool.borrowObject(), usageTracking);
+        return createProxy(pool.borrowObject(), pool);
     }
 
     @Override
@@ -84,12 +78,12 @@ public class ProxiedObjectPool<T, E extends Exception> implements ObjectPool<T, 
 
     @Override
     public void invalidateObject(final T proxy) throws E {
-        pool.invalidateObject(proxySource.resolveProxy(proxy));
+        pool.invalidateObject(resolveProxy(proxy));
     }
 
     @Override
     public void returnObject(final T proxy) throws E {
-        pool.returnObject(proxySource.resolveProxy(proxy));
+        pool.returnObject(resolveProxy(proxy));
     }
 
     /**
@@ -101,7 +95,7 @@ public class ProxiedObjectPool<T, E extends Exception> implements ObjectPool<T, 
         builder.append("ProxiedObjectPool [pool=");
         builder.append(pool);
         builder.append(", proxySource=");
-        builder.append(proxySource);
+        builder.append(getProxySource());
         builder.append("]");
         return builder.toString();
     }
