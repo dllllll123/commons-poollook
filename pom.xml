@@ -320,6 +320,21 @@
     </plugins>
   </reporting>
   <profiles>
+    <profile>
+      <id>quick</id>
+      <properties>
+        <maven.javadoc.skip>true</maven.javadoc.skip>
+        <rat.skip>true</rat.skip>
+        <spotbugs.skip>true</spotbugs.skip>
+        <pmd.skip>true</pmd.skip>
+        <cpd.skip>true</cpd.skip>
+        <checkstyle.skip>true</checkstyle.skip>
+        <japicmp.skip>true</japicmp.skip>
+      </properties>
+      <build>
+        <defaultGoal>clean test</defaultGoal>
+      </build>
+    </profile>
   </profiles>
   <developers>
     <developer>

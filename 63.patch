@@ -1,0 +1,38 @@
+diff --git a/README.md b/README.md
+index 867c1004..5c9eda13 100644
+--- a/README.md
++++ b/README.md
+@@ -82,6 +82,7 @@ There are some guidelines which will make applying PRs easier for us:
+ + Create minimal diffs - disable on save actions like reformat source code or organize imports. If you feel the source code should be reformatted create a separate PR for this change.
+ + Provide JUnit tests for your changes and make sure your changes don't break any existing tests by running `mvn`.
+ + Before you pushing a PR, run `mvn` (by itself), this runs the default goal, which contains all build checks.
+++ For local development and fast regression, use `mvn -Pquick` or `mvn -Pquick test` to compile and run unit tests only, skipping javadoc, japicmp, RAT, SpotBugs, PMD/CPD, and Checkstyle checks.
+ + To see the code coverage report, regardless of coverage failures, run `mvn clean site -Dcommons.jacoco.haltOnFailure=false`
+ 
+ If you plan to contribute on a regular basis, please consider filing a [contributor license agreement](https://www.apache.org/licenses/#clas).
+diff --git a/pom.xml b/pom.xml
+index 6ac0d867..592a74f9 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -320,6 +320,21 @@
+     </plugins>
+   </reporting>
+   <profiles>
++    <profile>
++      <id>quick</id>
++      <properties>
++        <maven.javadoc.skip>true</maven.javadoc.skip>
++        <rat.skip>true</rat.skip>
++        <spotbugs.skip>true</spotbugs.skip>
++        <pmd.skip>true</pmd.skip>
++        <cpd.skip>true</cpd.skip>
++        <checkstyle.skip>true</checkstyle.skip>
++        <japicmp.skip>true</japicmp.skip>
++      </properties>
++      <build>
++        <defaultGoal>clean test</defaultGoal>
++      </build>
++    </profile>
+   </profiles>
+   <developers>
+     <developer>
