@@ -1926,6 +1926,61 @@ class TestGenericKeyedObjectPool extends AbstractTestKeyedObjectPool {
     }
 
     /**
+     * Test preparePools with multiple keys.
+     *
+     * @throws Exception May occur in some failure modes
+     */
+    @Test
+    void testPreparePools() throws Exception {
+        final int minIdle = 3;
+        gkoPool.setMinIdlePerKey(minIdle);
+        
+        final List<String> keys = Arrays.asList("key1", "key2", "key3");
+        gkoPool.preparePools(keys);
+        
+        for (final String key : keys) {
+            assertEquals(minIdle, gkoPool.getNumIdle(key));
+        }
+    }
+
+    /**
+     * Test preparePools with empty collection.
+     *
+     * @throws Exception May occur in some failure modes
+     */
+    @Test
+    void testPreparePoolsEmptyCollection() throws Exception {
+        gkoPool.setMinIdlePerKey(3);
+        
+        // Should not throw exception
+        gkoPool.preparePools(new ArrayList<>());
+        
+        // Verify no keys were added
+        assertTrue(gkoPool.getNumIdle() == 0);
+    }
+
+    /**
+     * Test preparePools with null collection.
+     */
+    @Test
+    void testPreparePoolsNullCollection() {
+        assertThrows(NullPointerException.class, () -> gkoPool.preparePools(null));
+    }
+
+    /**
+     * Test preparePools with null element in collection.
+     */
+    @Test
+    void testPreparePoolsNullElement() {
+        final List<String> keys = new ArrayList<>();
+        keys.add("validKey");
+        keys.add(null);
+        keys.add("anotherKey");
+        
+        assertThrows(NullPointerException.class, () -> gkoPool.preparePools(keys));
+    }
+
+    /**
      * Test case for POOL-180.
      */
     @Test
