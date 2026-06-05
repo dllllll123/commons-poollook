@@ -72,6 +72,7 @@ Making Changes
   + Create minimal diffs - disable _On Save_ actions like _Reformat Source Code_ or _Organize Imports_. If you feel the source code should be reformatted create a separate PR for this change first.
 + Make sure you have added the necessary tests for your changes, typically in `src/test/java`.
 + Run all the tests with `mvn clean verify` to assure nothing else was accidentally broken.
++ For local containers and quick regression, you can use the `quick` profile by running `mvn -Pquick test` to only execute compilation and unit tests, skipping heavy checks.
 
 Making Trivial Changes
 ----------------------
