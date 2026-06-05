@@ -1,0 +1,107 @@
+diff --git a/src/main/java/org/apache/commons/pool3/impl/BaseGenericObjectPool.java b/src/main/java/org/apache/commons/pool3/impl/BaseGenericObjectPool.java
+index 1b4cf354..82bdb1a4 100644
+--- a/src/main/java/org/apache/commons/pool3/impl/BaseGenericObjectPool.java
++++ b/src/main/java/org/apache/commons/pool3/impl/BaseGenericObjectPool.java
+@@ -489,6 +489,35 @@ public abstract class BaseGenericObjectPool<T, E extends Exception> extends Base
+     @Override
+     public abstract void close();
+ 
++    /**
++     * Determines whether removeAbandoned should be triggered during borrowObject
++     * based on the current pool state.
++     *
++     * @param ac the abandoned configuration, may be null.
++     * @return true if removeAbandoned should be called.
++     */
++    protected boolean shouldRemoveAbandonedOnBorrow(final AbandonedConfig ac) {
++        return ac != null && ac.getRemoveAbandonedOnBorrow() && getNumIdle() < 2 && getNumActive() > getMaxTotal() - 3;
++    }
++
++    /**
++     * Triggers removeAbandoned if the current pool state warrants it.
++     *
++     * @param ac the abandoned configuration, may be null.
++     */
++    protected void removeAbandonedOnBorrow(final AbandonedConfig ac) {
++        if (shouldRemoveAbandonedOnBorrow(ac)) {
++            removeAbandoned(ac);
++        }
++    }
++
++    /**
++     * Removes abandoned objects from the pool.
++     *
++     * @param ac the abandoned configuration.
++     */
++    abstract void removeAbandoned(AbandonedConfig ac);
++
+     /**
+      * Creates a list of pooled objects to remove based on their state.
+      *
+@@ -901,6 +930,13 @@ public abstract class BaseGenericObjectPool<T, E extends Exception> extends Base
+         return minEvictableIdleDuration.toMillis();
+     }
+ 
++    /**
++     * Gets the number of instances currently active in this pool.
++     *
++     * @return count of instances checked out from the pool
++     */
++    public abstract int getNumActive();
++
+     /**
+      * Gets the number of instances currently idle in this pool.
+      *
+diff --git a/src/main/java/org/apache/commons/pool3/impl/GenericKeyedObjectPool.java b/src/main/java/org/apache/commons/pool3/impl/GenericKeyedObjectPool.java
+index 781371b8..a9fc281a 100644
+--- a/src/main/java/org/apache/commons/pool3/impl/GenericKeyedObjectPool.java
++++ b/src/main/java/org/apache/commons/pool3/impl/GenericKeyedObjectPool.java
+@@ -423,10 +423,7 @@ public class GenericKeyedObjectPool<K, T, E extends Exception> extends BaseGener
+         assertOpen();
+ 
+         final AbandonedConfig ac = this.abandonedConfig;
+-        if (ac != null && ac.getRemoveAbandonedOnBorrow() && getNumIdle() < 2 &&
+-                getNumActive() > getMaxTotal() - 3) {
+-            removeAbandoned(ac);
+-        }
++        removeAbandonedOnBorrow(ac);
+ 
+         PooledObject<T> p = null;
+ 
+@@ -1419,8 +1416,9 @@ public class GenericKeyedObjectPool<K, T, E extends Exception> extends BaseGener
+      *
+      * @param abandonedConfig The configuration to use to identify abandoned objects
+      */
++    @Override
+     @SuppressWarnings("resource") // The PrintWriter is managed elsewhere
+-    private void removeAbandoned(final AbandonedConfig abandonedConfig) {
++    void removeAbandoned(final AbandonedConfig abandonedConfig) {
+         poolMap.forEach((key, value) -> {
+             // Generate a list of abandoned objects to remove
+             final ArrayList<PooledObject<T>> remove = createRemoveList(abandonedConfig, value.getAllObjects());
+diff --git a/src/main/java/org/apache/commons/pool3/impl/GenericObjectPool.java b/src/main/java/org/apache/commons/pool3/impl/GenericObjectPool.java
+index fcfecd2b..fee65cb5 100644
+--- a/src/main/java/org/apache/commons/pool3/impl/GenericObjectPool.java
++++ b/src/main/java/org/apache/commons/pool3/impl/GenericObjectPool.java
+@@ -289,9 +289,7 @@ public class GenericObjectPool<T, E extends Exception> extends BaseGenericObject
+         final boolean negativeDuration = maxWaitDuration.isNegative();
+         Duration remainingWaitDuration = maxWaitDuration;
+         final AbandonedConfig ac = this.abandonedConfig;
+-        if (ac != null && ac.getRemoveAbandonedOnBorrow() && getNumIdle() < 2 && getNumActive() > getMaxTotal() - 3) {
+-            removeAbandoned(ac);
+-        }
++        removeAbandonedOnBorrow(ac);
+         PooledObject<T> p = null;
+         // Get local copy of current config so it is consistent for entire
+         // method execution
+@@ -995,8 +993,9 @@ public class GenericObjectPool<T, E extends Exception> extends BaseGenericObject
+      *
+      * @param abandonedConfig The configuration to use to identify abandoned objects
+      */
++    @Override
+     @SuppressWarnings("resource") // PrintWriter is managed elsewhere
+-    private void removeAbandoned(final AbandonedConfig abandonedConfig) {
++    void removeAbandoned(final AbandonedConfig abandonedConfig) {
+         // Generate a list of abandoned objects to remove
+         final ArrayList<PooledObject<T>> remove = createRemoveList(abandonedConfig, allObjects);
+         // Now remove the abandoned objects

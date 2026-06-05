@@ -490,6 +490,35 @@ public abstract class BaseGenericObjectPool<T, E extends Exception> extends Base
     public abstract void close();
 
     /**
+     * Determines whether removeAbandoned should be triggered during borrowObject
+     * based on the current pool state.
+     *
+     * @param ac the abandoned configuration, may be null.
+     * @return true if removeAbandoned should be called.
+     */
+    protected boolean shouldRemoveAbandonedOnBorrow(final AbandonedConfig ac) {
+        return ac != null && ac.getRemoveAbandonedOnBorrow() && getNumIdle() < 2 && getNumActive() > getMaxTotal() - 3;
+    }
+
+    /**
+     * Triggers removeAbandoned if the current pool state warrants it.
+     *
+     * @param ac the abandoned configuration, may be null.
+     */
+    protected void removeAbandonedOnBorrow(final AbandonedConfig ac) {
+        if (shouldRemoveAbandonedOnBorrow(ac)) {
+            removeAbandoned(ac);
+        }
+    }
+
+    /**
+     * Removes abandoned objects from the pool.
+     *
+     * @param ac the abandoned configuration.
+     */
+    abstract void removeAbandoned(AbandonedConfig ac);
+
+    /**
      * Creates a list of pooled objects to remove based on their state.
      *
      * @param abandonedConfig The abandoned configuration.
@@ -900,6 +929,13 @@ public abstract class BaseGenericObjectPool<T, E extends Exception> extends Base
     public final long getMinEvictableIdleTimeMillis() {
         return minEvictableIdleDuration.toMillis();
     }
+
+    /**
+     * Gets the number of instances currently active in this pool.
+     *
+     * @return count of instances checked out from the pool
+     */
+    public abstract int getNumActive();
 
     /**
      * Gets the number of instances currently idle in this pool.

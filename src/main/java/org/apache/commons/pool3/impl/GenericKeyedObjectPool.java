@@ -423,10 +423,7 @@ public class GenericKeyedObjectPool<K, T, E extends Exception> extends BaseGener
         assertOpen();
 
         final AbandonedConfig ac = this.abandonedConfig;
-        if (ac != null && ac.getRemoveAbandonedOnBorrow() && getNumIdle() < 2 &&
-                getNumActive() > getMaxTotal() - 3) {
-            removeAbandoned(ac);
-        }
+        removeAbandonedOnBorrow(ac);
 
         PooledObject<T> p = null;
 
@@ -1419,8 +1416,9 @@ public class GenericKeyedObjectPool<K, T, E extends Exception> extends BaseGener
      *
      * @param abandonedConfig The configuration to use to identify abandoned objects
      */
+    @Override
     @SuppressWarnings("resource") // The PrintWriter is managed elsewhere
-    private void removeAbandoned(final AbandonedConfig abandonedConfig) {
+    void removeAbandoned(final AbandonedConfig abandonedConfig) {
         poolMap.forEach((key, value) -> {
             // Generate a list of abandoned objects to remove
             final ArrayList<PooledObject<T>> remove = createRemoveList(abandonedConfig, value.getAllObjects());

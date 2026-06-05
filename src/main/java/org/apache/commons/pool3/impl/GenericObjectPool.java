@@ -289,9 +289,7 @@ public class GenericObjectPool<T, E extends Exception> extends BaseGenericObject
         final boolean negativeDuration = maxWaitDuration.isNegative();
         Duration remainingWaitDuration = maxWaitDuration;
         final AbandonedConfig ac = this.abandonedConfig;
-        if (ac != null && ac.getRemoveAbandonedOnBorrow() && getNumIdle() < 2 && getNumActive() > getMaxTotal() - 3) {
-            removeAbandoned(ac);
-        }
+        removeAbandonedOnBorrow(ac);
         PooledObject<T> p = null;
         // Get local copy of current config so it is consistent for entire
         // method execution
@@ -995,8 +993,9 @@ public class GenericObjectPool<T, E extends Exception> extends BaseGenericObject
      *
      * @param abandonedConfig The configuration to use to identify abandoned objects
      */
+    @Override
     @SuppressWarnings("resource") // PrintWriter is managed elsewhere
-    private void removeAbandoned(final AbandonedConfig abandonedConfig) {
+    void removeAbandoned(final AbandonedConfig abandonedConfig) {
         // Generate a list of abandoned objects to remove
         final ArrayList<PooledObject<T>> remove = createRemoveList(abandonedConfig, allObjects);
         // Now remove the abandoned objects
