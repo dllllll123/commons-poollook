@@ -165,6 +165,7 @@
         <plugin>
           <groupId>org.apache.rat</groupId>
           <artifactId>apache-rat-plugin</artifactId>
+          <version>0.16.1</version>
           <configuration>
             <inputExcludes>
               <inputExclude>src/test/resources/test1</inputExclude>
@@ -277,6 +278,7 @@
         <plugin>
           <groupId>org.apache.rat</groupId>
           <artifactId>apache-rat-plugin</artifactId>
+          <version>0.16.1</version>
           <configuration>
             <inputExcludes>
               <inputExclude>src/test/resources/test1</inputExclude>

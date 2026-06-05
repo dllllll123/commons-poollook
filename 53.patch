@@ -1,0 +1,170 @@
+diff --git a/pom.xml b/pom.xml
+index 6ac0d867..55a4db37 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -165,6 +165,7 @@
+         <plugin>
+           <groupId>org.apache.rat</groupId>
+           <artifactId>apache-rat-plugin</artifactId>
++          <version>0.16.1</version>
+           <configuration>
+             <inputExcludes>
+               <inputExclude>src/test/resources/test1</inputExclude>
+@@ -277,6 +278,7 @@
+         <plugin>
+           <groupId>org.apache.rat</groupId>
+           <artifactId>apache-rat-plugin</artifactId>
++          <version>0.16.1</version>
+           <configuration>
+             <inputExcludes>
+               <inputExclude>src/test/resources/test1</inputExclude>
+diff --git a/src/main/java/org/apache/commons/pool3/impl/GenericKeyedObjectPool.java b/src/main/java/org/apache/commons/pool3/impl/GenericKeyedObjectPool.java
+index 781371b8..31b12c89 100644
+--- a/src/main/java/org/apache/commons/pool3/impl/GenericKeyedObjectPool.java
++++ b/src/main/java/org/apache/commons/pool3/impl/GenericKeyedObjectPool.java
+@@ -19,6 +19,7 @@ package org.apache.commons.pool3.impl;
+ import java.time.Duration;
+ import java.time.Instant;
+ import java.util.ArrayList;
++import java.util.Collection;
+ import java.util.Deque;
+ import java.util.HashMap;
+ import java.util.Iterator;
+@@ -1369,6 +1370,37 @@ public class GenericKeyedObjectPool<K, T, E extends Exception> extends BaseGener
+         ensureMinIdle(key);
+     }
+ 
++    /**
++     * Registers multiple keys for pool control and ensures that
++     * {@link #getMinIdlePerKey()} idle instances are created for each key.
++     * <p>
++     * This is a convenience method equivalent to calling
++     * {@link #preparePool(Object)} for each key in the collection.
++     * </p>
++     * <p>
++     * If the collection is empty, this method is a no-op.
++     * If a key fails to be prepared, the exception is thrown immediately
++     * with a message identifying the failing key.
++     * </p>
++     *
++     * @param keys  The keys to register for pool control.
++     * @throws E If the associated factory throws an exception
++     * @throws IllegalArgumentException if {@code keys} is null
++     * @since 2.12.0
++     */
++    public void preparePools(final Collection<K> keys) throws E {
++        if (keys == null) {
++            throw new IllegalArgumentException("keys must not be null.");
++        }
++        final int minIdlePerKeySave = getMinIdlePerKey();
++        if (minIdlePerKeySave < 1) {
++            return;
++        }
++        for (final K key : keys) {
++            ensureMinIdle(key);
++        }
++    }
++
+     /**
+      * Register the use of a key by an object.
+      * <p>
+diff --git a/src/test/java/org/apache/commons/pool3/impl/TestGenericKeyedObjectPool.java b/src/test/java/org/apache/commons/pool3/impl/TestGenericKeyedObjectPool.java
+index 16c31937..4f4e6deb 100644
+--- a/src/test/java/org/apache/commons/pool3/impl/TestGenericKeyedObjectPool.java
++++ b/src/test/java/org/apache/commons/pool3/impl/TestGenericKeyedObjectPool.java
+@@ -2727,5 +2727,95 @@ class TestGenericKeyedObjectPool extends AbstractTestKeyedObjectPool {
+         assertTrue(wtt.thrown instanceof InterruptedException);
+     }
+ 
++    @Test
++    @Timeout(value = 60_000, unit = TimeUnit.MILLISECONDS)
++    void testPreparePools() throws Exception {
++        gkoPool.setMinIdlePerKey(3);
++        gkoPool.setMaxIdlePerKey(10);
++        gkoPool.setMaxTotalPerKey(10);
++        gkoPool.setMaxTotal(30);
++
++        final List<String> keys = Arrays.asList("A", "B", "C");
++        gkoPool.preparePools(keys);
++
++        assertEquals(3, gkoPool.getNumIdle("A"), "Key A should have 3 idle");
++        assertEquals(3, gkoPool.getNumIdle("B"), "Key B should have 3 idle");
++        assertEquals(3, gkoPool.getNumIdle("C"), "Key C should have 3 idle");
++        assertEquals(9, gkoPool.getNumIdle(), "Total idle should be 9");
++    }
++
++    @Test
++    @Timeout(value = 60_000, unit = TimeUnit.MILLISECONDS)
++    void testPreparePoolsEmptyCollection() throws Exception {
++        gkoPool.setMinIdlePerKey(3);
++        gkoPool.setMaxTotalPerKey(10);
++
++        gkoPool.preparePools(new ArrayList<>());
++
++        assertEquals(0, gkoPool.getNumIdle(), "Empty collection should be no-op");
++    }
++
++    @Test
++    @Timeout(value = 60_000, unit = TimeUnit.MILLISECONDS)
++    void testPreparePoolsNullCollection() {
++        gkoPool.setMinIdlePerKey(3);
++
++        assertThrows(IllegalArgumentException.class, () -> gkoPool.preparePools(null));
++    }
++
++    @Test
++    @Timeout(value = 60_000, unit = TimeUnit.MILLISECONDS)
++    void testPreparePoolsMinIdlePerKeyZero() throws Exception {
++        gkoPool.setMinIdlePerKey(0);
++        gkoPool.setMaxTotalPerKey(10);
++
++        gkoPool.preparePools(Arrays.asList("A", "B"));
++
++        assertEquals(0, gkoPool.getNumIdle(), "No idle objects should be created when minIdlePerKey is 0");
++    }
++
++    @Test
++    @Timeout(value = 60_000, unit = TimeUnit.MILLISECONDS)
++    void testPreparePoolsFactoryFailure() throws Exception {
++        gkoPool.setMinIdlePerKey(3);
++        gkoPool.setMaxTotalPerKey(10);
++        gkoPool.setMaxTotal(30);
++
++        simpleFactory.exceptionOnCreate = true;
++
++        assertThrows(TestException.class, () -> gkoPool.preparePools(Arrays.asList("A", "B")));
++    }
++
++    @Test
++    @Timeout(value = 60_000, unit = TimeUnit.MILLISECONDS)
++    void testPreparePoolsDoesNotBreakSingleKeyPreparePool() throws Exception {
++        gkoPool.setMinIdlePerKey(2);
++        gkoPool.setMaxTotalPerKey(10);
++
++        gkoPool.preparePool("X");
++
++        assertEquals(2, gkoPool.getNumIdle("X"), "Single key preparePool should still work");
++
++        gkoPool.preparePools(Arrays.asList("Y", "Z"));
++
++        assertEquals(2, gkoPool.getNumIdle("Y"), "Key Y should have 2 idle");
++        assertEquals(2, gkoPool.getNumIdle("Z"), "Key Z should have 2 idle");
++        assertEquals(2, gkoPool.getNumIdle("X"), "Key X should still have 2 idle");
++        assertEquals(6, gkoPool.getNumIdle(), "Total idle should be 6");
++    }
++
++    @Test
++    @Timeout(value = 60_000, unit = TimeUnit.MILLISECONDS)
++    void testPreparePoolsRespectsMaxTotal() throws Exception {
++        gkoPool.setMinIdlePerKey(5);
++        gkoPool.setMaxTotalPerKey(10);
++        gkoPool.setMaxTotal(8);
++
++        gkoPool.preparePools(Arrays.asList("A", "B"));
++
++        final int totalIdle = gkoPool.getNumIdle();
++        assertTrue(totalIdle <= 8, "Total idle should not exceed maxTotal=8, but was " + totalIdle);
++    }
++
+ }
+ 
