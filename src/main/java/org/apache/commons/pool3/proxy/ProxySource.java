@@ -46,4 +46,13 @@ interface ProxySource<T> {
      * @return The pooled object wrapped by the given proxy
      */
     T resolveProxy(T proxy);
+
+    @SuppressWarnings("unchecked")
+    static <T> T createProxyFromPool(final Object pool, final T pooledObject, final ProxySource<T> proxySource) {
+        UsageTracking<T> usageTracking = null;
+        if (pool instanceof UsageTracking) {
+            usageTracking = (UsageTracking<T>) pool;
+        }
+        return proxySource.createProxy(pooledObject, usageTracking);
+    }
 }

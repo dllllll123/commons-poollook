@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.NoSuchElementException;
 
 import org.apache.commons.pool3.KeyedObjectPool;
-import org.apache.commons.pool3.UsageTracking;
 
 /**
  * Create a new keyed object pool where the pooled objects are wrapped in
@@ -56,15 +55,10 @@ public class ProxiedKeyedObjectPool<K, V, E extends Exception> implements KeyedO
         pool.addObject(key);
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public V borrowObject(final K key) throws E, NoSuchElementException,
             IllegalStateException {
-        UsageTracking<V> usageTracking = null;
-        if (pool instanceof UsageTracking) {
-            usageTracking = (UsageTracking<V>) pool;
-        }
-        return proxySource.createProxy(pool.borrowObject(key), usageTracking);
+        return ProxySource.createProxyFromPool(pool, pool.borrowObject(key), proxySource);
     }
 
     @Override
