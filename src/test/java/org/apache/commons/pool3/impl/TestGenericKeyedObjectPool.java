@@ -31,6 +31,7 @@ import java.lang.management.ManagementFactory;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -2725,6 +2726,101 @@ class TestGenericKeyedObjectPool extends AbstractTestKeyedObjectPool {
 
         // Check thread was interrupted
         assertTrue(wtt.thrown instanceof InterruptedException);
+    }
+
+    @Test
+    void testPreparePoolsMultipleKeys() throws Exception {
+        gkoPool.setMaxIdlePerKey(500);
+        gkoPool.setMinIdlePerKey(3);
+        gkoPool.setMaxTotalPerKey(10);
+
+        final List<String> keys = Arrays.asList("A", "B", "C");
+        gkoPool.preparePools(keys);
+
+        for (final String key : keys) {
+            assertEquals(3, gkoPool.getNumIdle(key),
+                    "Key " + key + " should have 3 idle, found " + gkoPool.getNumIdle(key));
+        }
+        assertEquals(9, gkoPool.getNumIdle(), "Total idle should be 9, found " + gkoPool.getNumIdle());
+    }
+
+    @Test
+    void testPreparePoolsEmptyCollection() throws Exception {
+        gkoPool.setMinIdlePerKey(3);
+        gkoPool.preparePools(Collections.emptyList());
+        assertEquals(0, gkoPool.getNumIdle());
+    }
+
+    @Test
+    void testPreparePoolsNullCollection() throws Exception {
+        gkoPool.setMinIdlePerKey(3);
+        gkoPool.preparePools(null);
+        assertEquals(0, gkoPool.getNumIdle());
+    }
+
+    @Test
+    void testPreparePoolsSingleKeyFailure() throws Exception {
+        final SimpleFactory<String> factory = new SimpleFactory<>();
+        try (GenericKeyedObjectPool<String, String, TestException> pool = new GenericKeyedObjectPool<>(factory)) {
+            pool.setMaxIdlePerKey(500);
+            pool.setMinIdlePerKey(2);
+            pool.setMaxTotalPerKey(10);
+
+            pool.preparePools(Arrays.asList("A", "B"));
+            assertEquals(2, pool.getNumIdle("A"));
+            assertEquals(2, pool.getNumIdle("B"));
+
+            factory.exceptionOnCreate = true;
+            final TestException ex = assertThrows(TestException.class,
+                    () -> pool.preparePools(Arrays.asList("C", "D")));
+            assertEquals(1, ex.getSuppressed().length,
+                    "Should have 1 suppressed exception for the second failing key");
+        }
+    }
+
+    @Test
+    void testPreparePoolsPartialFailureContinuesForOtherKeys() throws Exception {
+        final SimpleFactory<String> factory = new SimpleFactory<>();
+        try (GenericKeyedObjectPool<String, String, TestException> pool = new GenericKeyedObjectPool<>(factory)) {
+            pool.setMaxIdlePerKey(500);
+            pool.setMinIdlePerKey(2);
+            pool.setMaxTotalPerKey(10);
+
+            pool.preparePools(Arrays.asList("A"));
+            assertEquals(2, pool.getNumIdle("A"));
+
+            factory.exceptionOnCreate = true;
+            assertThrows(TestException.class,
+                    () -> pool.preparePools(Arrays.asList("B", "C")));
+
+            factory.exceptionOnCreate = false;
+            pool.preparePools(Arrays.asList("B"));
+            assertEquals(2, pool.getNumIdle("B"));
+        }
+    }
+
+    @Test
+    void testPreparePoolsDoesNotBreakSinglePreparePool() throws Exception {
+        gkoPool.setMaxIdlePerKey(500);
+        gkoPool.setMinIdlePerKey(5);
+        gkoPool.setMaxTotalPerKey(10);
+
+        gkoPool.preparePool("X");
+        assertEquals(5, gkoPool.getNumIdle("X"));
+
+        gkoPool.preparePools(Arrays.asList("Y", "Z"));
+        assertEquals(5, gkoPool.getNumIdle("Y"));
+        assertEquals(5, gkoPool.getNumIdle("Z"));
+
+        gkoPool.preparePool("W");
+        assertEquals(5, gkoPool.getNumIdle("W"));
+    }
+
+    @Test
+    void testPreparePoolsMinIdlePerKeyZero() throws Exception {
+        gkoPool.setMinIdlePerKey(0);
+        gkoPool.preparePools(Arrays.asList("A", "B", "C"));
+        assertEquals(0, gkoPool.getNumIdle());
     }
 
 }

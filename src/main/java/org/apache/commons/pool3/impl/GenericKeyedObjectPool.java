@@ -19,6 +19,7 @@ package org.apache.commons.pool3.impl;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -1367,6 +1368,45 @@ public class GenericKeyedObjectPool<K, T, E extends Exception> extends BaseGener
             return;
         }
         ensureMinIdle(key);
+    }
+
+    /**
+     * Registers multiple keys for pool control and ensures that
+     * {@link #getMinIdlePerKey()} idle instances are created for each key.
+     * <p>
+     * This is a best-effort operation: if preparing a pool for one key fails,
+     * the method will continue to prepare pools for the remaining keys. If any
+     * key fails, the first exception is thrown with subsequent exceptions added
+     * as suppressed exceptions, making it clear which keys failed.
+     * </p>
+     * <p>
+     * If the provided collection is {@code null} or empty, this method is a no-op.
+     * </p>
+     *
+     * @param keys The keys to register for pool control.
+     * @throws E If the associated factory throws an exception for any key.
+     *           The first failure is thrown as the primary exception;
+     *           additional failures are attached as suppressed exceptions.
+     */
+    public void preparePools(final Collection<? extends K> keys) throws E {
+        if (keys == null || keys.isEmpty()) {
+            return;
+        }
+        Exception firstException = null;
+        for (final K key : keys) {
+            try {
+                preparePool(key);
+            } catch (final Exception e) {
+                if (firstException == null) {
+                    firstException = e;
+                } else {
+                    firstException.addSuppressed(e);
+                }
+            }
+        }
+        if (firstException != null) {
+            throw (E) firstException;
+        }
     }
 
     /**
