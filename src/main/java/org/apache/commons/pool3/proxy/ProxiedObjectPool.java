@@ -52,13 +52,9 @@ public class ProxiedObjectPool<T, E extends Exception> implements ObjectPool<T, 
         pool.addObject();
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public T borrowObject() throws E, NoSuchElementException, IllegalStateException {
-        UsageTracking<T> usageTracking = null;
-        if (pool instanceof UsageTracking) {
-            usageTracking = (UsageTracking<T>) pool;
-        }
+        final UsageTracking<T> usageTracking = ProxyUtils.extractUsageTracking(pool);
         return proxySource.createProxy(pool.borrowObject(), usageTracking);
     }
 

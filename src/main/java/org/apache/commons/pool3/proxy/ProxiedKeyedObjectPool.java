@@ -56,14 +56,10 @@ public class ProxiedKeyedObjectPool<K, V, E extends Exception> implements KeyedO
         pool.addObject(key);
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public V borrowObject(final K key) throws E, NoSuchElementException,
             IllegalStateException {
-        UsageTracking<V> usageTracking = null;
-        if (pool instanceof UsageTracking) {
-            usageTracking = (UsageTracking<V>) pool;
-        }
+        final UsageTracking<V> usageTracking = ProxyUtils.extractUsageTracking(pool);
         return proxySource.createProxy(pool.borrowObject(key), usageTracking);
     }
 
