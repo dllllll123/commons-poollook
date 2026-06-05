@@ -82,7 +82,7 @@ There are some guidelines which will make applying PRs easier for us:
 + Create minimal diffs - disable on save actions like reformat source code or organize imports. If you feel the source code should be reformatted create a separate PR for this change.
 + Provide JUnit tests for your changes and make sure your changes don't break any existing tests by running `mvn`.
 + Before you pushing a PR, run `mvn` (by itself), this runs the default goal, which contains all build checks.
-+ For local development and quick regressions, you can use the `quick` profile (e.g., `mvn -Pquick test`), which skips heavy checks like javadoc, japicmp, rat, spotbugs, and pmd/cpd to speed up the build.
++ For fast local regression or container builds, you can use the `quick` profile (e.g., `mvn -Pquick test` or `mvn -Pquick`), which performs compilation and unit testing while skipping heavy checks like javadoc, rat, and spotbugs.
 + To see the code coverage report, regardless of coverage failures, run `mvn clean site -Dcommons.jacoco.haltOnFailure=false`
 
 If you plan to contribute on a regular basis, please consider filing a [contributor license agreement](https://www.apache.org/licenses/#clas).
