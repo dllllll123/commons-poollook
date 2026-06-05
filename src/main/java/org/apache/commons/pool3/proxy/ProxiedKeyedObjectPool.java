@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.NoSuchElementException;
 
 import org.apache.commons.pool3.KeyedObjectPool;
-import org.apache.commons.pool3.UsageTracking;
 
 /**
  * Create a new keyed object pool where the pooled objects are wrapped in
@@ -33,10 +32,10 @@ import org.apache.commons.pool3.UsageTracking;
  * @param <E> type of exception thrown by this pool
  * @since 2.0
  */
-public class ProxiedKeyedObjectPool<K, V, E extends Exception> implements KeyedObjectPool<K, V, E> {
+public class ProxiedKeyedObjectPool<K, V, E extends Exception>
+        extends BaseProxiedPool<V> implements KeyedObjectPool<K, V, E> {
 
     private final KeyedObjectPool<K, V, E> pool;
-    private final ProxySource<V> proxySource;
 
     /**
      * Constructs a new proxied object pool.
@@ -46,8 +45,8 @@ public class ProxiedKeyedObjectPool<K, V, E extends Exception> implements KeyedO
      */
     public ProxiedKeyedObjectPool(final KeyedObjectPool<K, V, E> pool,
             final ProxySource<V> proxySource) {
+        super(proxySource);
         this.pool = pool;
-        this.proxySource = proxySource;
     }
 
     @Override
@@ -56,15 +55,10 @@ public class ProxiedKeyedObjectPool<K, V, E extends Exception> implements KeyedO
         pool.addObject(key);
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public V borrowObject(final K key) throws E, NoSuchElementException,
             IllegalStateException {
-        UsageTracking<V> usageTracking = null;
-        if (pool instanceof UsageTracking) {
-            usageTracking = (UsageTracking<V>) pool;
-        }
-        return proxySource.createProxy(pool.borrowObject(key), usageTracking);
+        return createProxy(pool.borrowObject(key), pool);
     }
 
     @Override
@@ -109,12 +103,12 @@ public class ProxiedKeyedObjectPool<K, V, E extends Exception> implements KeyedO
 
     @Override
     public void invalidateObject(final K key, final V proxy) throws E {
-        pool.invalidateObject(key, proxySource.resolveProxy(proxy));
+        pool.invalidateObject(key, resolveProxy(proxy));
     }
 
     @Override
     public void returnObject(final K key, final V proxy) throws E {
-        pool.returnObject(key, proxySource.resolveProxy(proxy));
+        pool.returnObject(key, resolveProxy(proxy));
     }
 
     /**
@@ -126,7 +120,7 @@ public class ProxiedKeyedObjectPool<K, V, E extends Exception> implements KeyedO
         builder.append("ProxiedKeyedObjectPool [pool=");
         builder.append(pool);
         builder.append(", proxySource=");
-        builder.append(proxySource);
+        builder.append(getProxySource());
         builder.append("]");
         return builder.toString();
     }
