@@ -19,6 +19,7 @@ package org.apache.commons.pool3.impl;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -1367,6 +1368,12 @@ public class GenericKeyedObjectPool<K, T, E extends Exception> extends BaseGener
             return;
         }
         ensureMinIdle(key);
+    }
+
+    public void preparePools(final Collection<K> keys) throws E {
+        for (final K key : keys) {
+            preparePool(key);
+        }
     }
 
     /**

@@ -2260,6 +2260,61 @@ class TestGenericKeyedObjectPool extends AbstractTestKeyedObjectPool {
 
     @Test
     @Timeout(value = 60_000, unit = TimeUnit.MILLISECONDS)
+    void testMinIdleMultipleKeys() throws Exception {
+        gkoPool.setMaxIdlePerKey(500);
+        gkoPool.setMinIdlePerKey(5);
+        gkoPool.setMaxTotalPerKey(10);
+        gkoPool.setNumTestsPerEvictionRun(0);
+        gkoPool.setMinEvictableIdleDuration(Duration.ofMillis(50));
+        gkoPool.setDurationBetweenEvictionRuns(Duration.ofMillis(100));
+        gkoPool.setTestWhileIdle(true);
+
+        final List<String> keys = Arrays.asList("A", "B", "C");
+
+        gkoPool.preparePools(keys);
+
+        for (final String key : keys) {
+            assertEquals(5, gkoPool.getNumIdle(key), "Should be 5 idle for key " + key + ", found " + gkoPool.getNumIdle(key));
+        }
+        assertEquals(15, gkoPool.getNumIdle(), "Should be 15 idle, found " + gkoPool.getNumIdle());
+    }
+
+    @Test
+    void testMinIdleMultipleKeysEmptyCollection() throws Exception {
+        gkoPool.setMinIdlePerKey(5);
+
+        gkoPool.preparePools(new ArrayList<>());
+
+        assertEquals(0, gkoPool.getNumIdle(), "Should be 0 idle, found " + gkoPool.getNumIdle());
+    }
+
+    @Test
+    void testMinIdleMultipleKeysException() throws Exception {
+        final SimpleFactory<String> factory = new SimpleFactory<String>() {
+            @Override
+            public PooledObject<String> makeObject(final String key) throws TestException {
+                if ("B".equals(key)) {
+                    throw new TestException(key);
+                }
+                return super.makeObject(key);
+            }
+        };
+
+        try (GenericKeyedObjectPool<String, String, TestException> pool = new GenericKeyedObjectPool<>(factory)) {
+            pool.setMinIdlePerKey(1);
+            final List<String> keys = Arrays.asList("A", "B", "C");
+
+            final TestException exception = assertThrows(TestException.class, () -> pool.preparePools(keys));
+
+            assertEquals("B", exception.getMessage());
+            assertEquals(1, pool.getNumIdle("A"), "Should be 1 idle for key A, found " + pool.getNumIdle("A"));
+            assertEquals(0, pool.getNumIdle("B"), "Should be 0 idle for key B, found " + pool.getNumIdle("B"));
+            assertEquals(0, pool.getNumIdle("C"), "Should be 0 idle for key C, found " + pool.getNumIdle("C"));
+        }
+    }
+
+    @Test
+    @Timeout(value = 60_000, unit = TimeUnit.MILLISECONDS)
     void testMinIdleMaxTotalPerKey() throws Exception {
         gkoPool.setMaxIdlePerKey(500);
         gkoPool.setMinIdlePerKey(5);
