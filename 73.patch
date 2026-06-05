@@ -1,0 +1,57 @@
+diff --git a/src/main/java/org/apache/commons/pool3/proxy/ProxiedKeyedObjectPool.java b/src/main/java/org/apache/commons/pool3/proxy/ProxiedKeyedObjectPool.java
+index b874d687..965aa7ff 100644
+--- a/src/main/java/org/apache/commons/pool3/proxy/ProxiedKeyedObjectPool.java
++++ b/src/main/java/org/apache/commons/pool3/proxy/ProxiedKeyedObjectPool.java
+@@ -20,7 +20,6 @@ import java.util.List;
+ import java.util.NoSuchElementException;
+ 
+ import org.apache.commons.pool3.KeyedObjectPool;
+-import org.apache.commons.pool3.UsageTracking;
+ 
+ /**
+  * Create a new keyed object pool where the pooled objects are wrapped in
+@@ -56,15 +55,10 @@ public class ProxiedKeyedObjectPool<K, V, E extends Exception> implements KeyedO
+         pool.addObject(key);
+     }
+ 
+-    @SuppressWarnings("unchecked")
+     @Override
+     public V borrowObject(final K key) throws E, NoSuchElementException,
+             IllegalStateException {
+-        UsageTracking<V> usageTracking = null;
+-        if (pool instanceof UsageTracking) {
+-            usageTracking = (UsageTracking<V>) pool;
+-        }
+-        return proxySource.createProxy(pool.borrowObject(key), usageTracking);
++        return proxySource.createProxy(pool.borrowObject(key), ProxiedPoolHelper.extractUsageTracking(pool));
+     }
+ 
+     @Override
+diff --git a/src/main/java/org/apache/commons/pool3/proxy/ProxiedObjectPool.java b/src/main/java/org/apache/commons/pool3/proxy/ProxiedObjectPool.java
+index 882ee2ad..31d3a85f 100644
+--- a/src/main/java/org/apache/commons/pool3/proxy/ProxiedObjectPool.java
++++ b/src/main/java/org/apache/commons/pool3/proxy/ProxiedObjectPool.java
+@@ -19,7 +19,6 @@ package org.apache.commons.pool3.proxy;
+ import java.util.NoSuchElementException;
+ 
+ import org.apache.commons.pool3.ObjectPool;
+-import org.apache.commons.pool3.UsageTracking;
+ 
+ /**
+  * Create a new object pool where the pooled objects are wrapped in proxies
+@@ -52,14 +51,9 @@ public class ProxiedObjectPool<T, E extends Exception> implements ObjectPool<T,
+         pool.addObject();
+     }
+ 
+-    @SuppressWarnings("unchecked")
+     @Override
+     public T borrowObject() throws E, NoSuchElementException, IllegalStateException {
+-        UsageTracking<T> usageTracking = null;
+-        if (pool instanceof UsageTracking) {
+-            usageTracking = (UsageTracking<T>) pool;
+-        }
+-        return proxySource.createProxy(pool.borrowObject(), usageTracking);
++        return proxySource.createProxy(pool.borrowObject(), ProxiedPoolHelper.extractUsageTracking(pool));
+     }
+ 
+     @Override

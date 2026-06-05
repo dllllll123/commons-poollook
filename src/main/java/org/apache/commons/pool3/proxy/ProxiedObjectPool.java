@@ -19,7 +19,6 @@ package org.apache.commons.pool3.proxy;
 import java.util.NoSuchElementException;
 
 import org.apache.commons.pool3.ObjectPool;
-import org.apache.commons.pool3.UsageTracking;
 
 /**
  * Create a new object pool where the pooled objects are wrapped in proxies
@@ -52,14 +51,9 @@ public class ProxiedObjectPool<T, E extends Exception> implements ObjectPool<T, 
         pool.addObject();
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public T borrowObject() throws E, NoSuchElementException, IllegalStateException {
-        UsageTracking<T> usageTracking = null;
-        if (pool instanceof UsageTracking) {
-            usageTracking = (UsageTracking<T>) pool;
-        }
-        return proxySource.createProxy(pool.borrowObject(), usageTracking);
+        return proxySource.createProxy(pool.borrowObject(), ProxiedPoolHelper.extractUsageTracking(pool));
     }
 
     @Override
