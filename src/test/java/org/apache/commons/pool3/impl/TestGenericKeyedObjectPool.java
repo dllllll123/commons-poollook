@@ -2260,6 +2260,29 @@ class TestGenericKeyedObjectPool extends AbstractTestKeyedObjectPool {
 
     @Test
     @Timeout(value = 60_000, unit = TimeUnit.MILLISECONDS)
+    void testPreparePools() throws Exception {
+        gkoPool.setMaxIdlePerKey(500);
+        gkoPool.setMinIdlePerKey(5);
+        gkoPool.setMaxTotalPerKey(10);
+
+        gkoPool.preparePools(null); // Should not throw an exception
+        gkoPool.preparePools(new ArrayList<>()); // Should not throw an exception
+
+        final List<String> keys = new ArrayList<>();
+        keys.add("A");
+        keys.add("B");
+        keys.add("C");
+
+        gkoPool.preparePools(keys);
+
+        assertEquals(5, gkoPool.getNumIdle("A"), "Should be 5 idle for key A");
+        assertEquals(5, gkoPool.getNumIdle("B"), "Should be 5 idle for key B");
+        assertEquals(5, gkoPool.getNumIdle("C"), "Should be 5 idle for key C");
+        assertEquals(15, gkoPool.getNumIdle(), "Should be 15 idle in total");
+    }
+
+    @Test
+    @Timeout(value = 60_000, unit = TimeUnit.MILLISECONDS)
     void testMinIdleMaxTotalPerKey() throws Exception {
         gkoPool.setMaxIdlePerKey(500);
         gkoPool.setMinIdlePerKey(5);

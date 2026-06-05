@@ -19,6 +19,7 @@ package org.apache.commons.pool3.impl;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -1367,6 +1368,22 @@ public class GenericKeyedObjectPool<K, T, E extends Exception> extends BaseGener
             return;
         }
         ensureMinIdle(key);
+    }
+
+    /**
+     * Registers a collection of keys for pool control and ensures that
+     * {@link #getMinIdlePerKey()} idle instances are created for each key.
+     *
+     * @param keys The collection of keys to register for pool control.
+     * @throws E If the associated factory throws an exception
+     * @since 3.0.0
+     */
+    public void preparePools(final Collection<K> keys) throws E {
+        if (keys != null) {
+            for (final K key : keys) {
+                preparePool(key);
+            }
+        }
     }
 
     /**
